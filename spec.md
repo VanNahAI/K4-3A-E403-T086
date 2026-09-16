@@ -1,6 +1,8 @@
 # AI SPEC (Bản nộp Checkpoint 1) — Workshop Question Curator
 **Nhóm:** K4-3A · **Lớp:** 3A · **Phòng:** E402/E403  
 **Hướng:** [x] Track E — Làn mở (AI20k) · **Loại:** [x] Tính năng mới  
+**Đội trưởng:** Chu Văn Nhân (2A202602668)  
+**Thành viên:** Nguyễn Khắc Quang (2A20260285), Dương Dương (2A202602498)  
 
 ---
 
@@ -13,12 +15,11 @@
 5. **LÁT CẮT MỘT CÂU:** **Một giảng viên · theo dõi Q&A Zoom trong workshop · AI gom và xếp hạng câu hỏi theo số lần lặp · giảng viên xử lý Top 5 trước khi buổi học kết thúc.**
 6. **AUTOMATION DỰ KIẾN & WILLING USERS:**
    - *Mức tự động hóa:* **Conditional Automation** — AI tự gom cụm câu trùng ý và đếm số lần lặp mỗi 5–10 giây; câu mấp mé (confidence thấp) đưa vào mục chờ duyệt, AI tuyệt đối không tự trả lời học viên.
-   - *Willing Users dự kiến (≥2 người):* 1 Giảng viên/TA phòng lab + 4 học viên trong lớp tham gia gửi câu hỏi stream thật để thử nghiệm.
+   - *Willing Users dự kiến (≥2 người):* **Trần Thu Phương** (Học viên) và **Chu Minh Quân** (Học viên) tham gia gửi câu hỏi stream thật để thử nghiệm.
 7. **PHÂN CÔNG VAI TRÒ CỤ THỂ:**
-   - **Thành viên 1:** Product Lead — Canvas, Spec, Bằng chứng & điều phối các mốc.
-   - **Thành viên 2:** Frontend — Giao diện Realtime Dashboard Top 10 + Bộ giả lập luồng Zoom Chat.
-   - **Thành viên 3:** AI Engineer — Pipeline gom cụm ngữ nghĩa (Clustering), đếm tần suất và chuẩn hóa câu đại diện.
-   - **Thành viên 4:** QA & Testing — Xây dựng Golden Set 20 case, đo lường độ chính xác và chuẩn bị demo.
+   - **Chu Văn Nhân (Leader - 2A202602668):** Product Lead — Canvas, Spec, Bằng chứng & điều phối các mốc.
+   - **Nguyễn Khắc Quang (2A20260285):** Frontend — Giao diện Realtime Dashboard Top 10 + Bộ giả lập luồng Zoom Chat.
+   - **Dương Dương (2A202602498):** AI Engineer & QA — Pipeline gom cụm ngữ nghĩa (Clustering), chuẩn hóa câu đại diện & Golden Set.
 
 ---
 
