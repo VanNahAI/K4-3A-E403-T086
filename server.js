@@ -22,6 +22,13 @@ const ZOOM_MEETING_ID = String(process.env.ZOOM_MEETING_ID || '').trim();
 const ZOOM_PASSCODE = String(process.env.ZOOM_PASSCODE || '').trim();
 const ZOOM_TOPIC = String(process.env.ZOOM_TOPIC || 'AI20K Workshop').trim();
 const ZOOM_SPEAKER = String(process.env.ZOOM_SPEAKER || '').trim();
+const configuredBodyLimit = Number(process.env.MAX_REQUEST_BODY_BYTES);
+const MAX_REQUEST_BODY_BYTES = Number.isInteger(configuredBodyLimit) && configuredBodyLimit > 0
+  ? configuredBodyLimit
+  : 1024 * 1024;
+const MAX_WS_PAYLOAD_BYTES = 64 * 1024;
+const WS_MESSAGE_WINDOW_MS = 10 * 1000;
+const WS_MESSAGE_LIMIT = 60;
 
 // MIME types for static serving
 const MIME_TYPES = {
@@ -60,11 +67,76 @@ function hasValidLecturerToken(providedToken) {
 }
 
 function sendJson(res, statusCode, payload) {
+  applySecurityHeaders(res);
   res.writeHead(statusCode, {
     'Content-Type': 'application/json; charset=UTF-8',
     'Cache-Control': 'no-store'
   });
   res.end(JSON.stringify(payload));
+}
+
+function applySecurityHeaders(res) {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+}
+
+function readJsonBody(req, res, onJson) {
+  const declaredLength = Number(req.headers['content-length']);
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_REQUEST_BODY_BYTES) {
+    req.resume();
+    sendJson(res, 413, {
+      success: false,
+      code: 'REQUEST_BODY_TOO_LARGE',
+      message: `Nội dung request vượt quá ${MAX_REQUEST_BODY_BYTES} bytes.`
+    });
+    return;
+  }
+
+  let body = '';
+  let receivedBytes = 0;
+  let finished = false;
+
+  req.on('data', chunk => {
+    if (finished) return;
+    receivedBytes += chunk.length;
+    if (receivedBytes > MAX_REQUEST_BODY_BYTES) {
+      finished = true;
+      sendJson(res, 413, {
+        success: false,
+        code: 'REQUEST_BODY_TOO_LARGE',
+        message: `Nội dung request vượt quá ${MAX_REQUEST_BODY_BYTES} bytes.`
+      });
+      return;
+    }
+    body += chunk.toString('utf8');
+  });
+
+  req.on('end', () => {
+    if (finished) return;
+    try {
+      onJson(JSON.parse(body));
+    } catch (error) {
+      sendJson(res, 400, {
+        success: false,
+        code: 'INVALID_JSON',
+        message: 'Request body phải là JSON hợp lệ.'
+      });
+    }
+  });
+
+  req.on('error', error => {
+    if (!finished && !res.headersSent) {
+      finished = true;
+      sendJson(res, 400, {
+        success: false,
+        code: 'REQUEST_READ_FAILED',
+        message: 'Không thể đọc request body.'
+      });
+    }
+    console.warn('Request body read failed:', error.message);
+  });
 }
 
 function requireLecturerHttp(req, res) {
@@ -124,6 +196,7 @@ function sendWsAuthError(ws, message = 'Cần xác thực giảng viên hợp l�
 
 // HTTP Server
 const server = http.createServer((req, res) => {
+  applySecurityHeaders(res);
   const url = new URL(req.url, `http://${req.headers.host}`);
   let pathname = url.pathname;
 
@@ -149,15 +222,24 @@ const server = http.createServer((req, res) => {
     pathname = '/pip_companion.html';
   }
 
+  if (req.method === 'GET' && pathname === '/api/health') {
+    sendJson(res, 200, {
+      status: 'ok',
+      service: 'workshop-question-curator',
+      lecturerAuthConfigured: Boolean(LECTURER_ACCESS_TOKEN),
+      zoomConfigured: isValidZoomUrl(zoomMeetingConfig.url),
+      simulationEnabled: ENABLE_SIMULATION,
+      sessionOpen: sessionState.isOpen
+    });
+    return;
+  }
+
   // API: Get / Set pre-configured Zoom meeting link
   if (pathname === '/api/config-zoom') {
     if (req.method === 'POST') {
       if (!requireLecturerHttp(req, res)) return;
-      let body = '';
-      req.on('data', chunk => { body += chunk; });
-      req.on('end', () => {
+      readJsonBody(req, res, json => {
         try {
-          const json = JSON.parse(body);
           if (json.url !== undefined) {
             if (!isValidZoomUrl(json.url)) {
               sendJson(res, 400, {
@@ -174,7 +256,7 @@ const server = http.createServer((req, res) => {
           if (json.topic) zoomMeetingConfig.topic = json.topic;
           sendJson(res, 200, { success: true, config: zoomMeetingConfig });
         } catch (e) {
-          sendJson(res, 400, { error: e.message });
+          sendJson(res, 400, { success: false, error: e.message });
         }
       });
       return;
@@ -187,11 +269,8 @@ const server = http.createServer((req, res) => {
   // REST API: Ingest raw Zoom chat
   if (req.method === 'POST' && pathname === '/api/zoom-import') {
     if (!requireLecturerHttp(req, res)) return;
-    let body = '';
-    req.on('data', chunk => { body += chunk; });
-    req.on('end', () => {
+    readJsonBody(req, res, json => {
       try {
-        const json = JSON.parse(body);
         const rawText = json.rawText || '';
         const parsed = parseZoomChatLog(rawText);
         
@@ -203,7 +282,7 @@ const server = http.createServer((req, res) => {
 
         sendJson(res, 200, { success: true, importedCount: parsed.length });
       } catch (err) {
-        sendJson(res, 400, { error: err.message });
+        sendJson(res, 400, { success: false, error: err.message });
       }
     });
     return;
@@ -315,7 +394,7 @@ const server = http.createServer((req, res) => {
 });
 
 // WebSocket Server
-const wss = new WebSocketServer({ server });
+const wss = new WebSocketServer({ server, maxPayload: MAX_WS_PAYLOAD_BYTES });
 const clients = new Map(); // ws -> { role, id, name, authenticated, sessionId }
 
 // Live session state
@@ -365,7 +444,14 @@ function startNewSession() {
 
 wss.on('connection', (ws) => {
   const clientId = `USER_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-  clients.set(ws, { role: 'unknown', id: clientId, name: '', authenticated: false });
+  clients.set(ws, {
+    role: 'unknown',
+    id: clientId,
+    name: '',
+    authenticated: false,
+    messageWindowStartedAt: Date.now(),
+    messageCount: 0
+  });
 
   ws.on('message', (data) => {
     try {
@@ -500,6 +586,22 @@ function scoreFaqMatch(text, faq) {
 function handleWebSocketMessage(ws, msg) {
   const client = clients.get(ws);
   if (!client) return;
+
+  const now = Date.now();
+  if (now - client.messageWindowStartedAt >= WS_MESSAGE_WINDOW_MS) {
+    client.messageWindowStartedAt = now;
+    client.messageCount = 0;
+  }
+  client.messageCount += 1;
+  if (client.messageCount > WS_MESSAGE_LIMIT) {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'rate_limited',
+        message: 'Bạn gửi quá nhiều thao tác trong thời gian ngắn. Vui lòng thử lại sau.'
+      }));
+    }
+    return;
+  }
 
   switch (msg.type) {
     case 'register_role':
@@ -749,3 +851,23 @@ server.listen(PORT, () => {
   console.log(`👉 WebSocket Endpoint: ws://localhost:${PORT}/ws`);
   console.log(`=======================================================`);
 });
+
+let isShuttingDown = false;
+function shutdown(signal) {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  console.log(`Đang đóng server theo tín hiệu ${signal}...`);
+
+  for (const ws of clients.keys()) {
+    if (ws.readyState === WebSocket.OPEN) ws.close(1001, 'Server đang khởi động lại');
+  }
+
+  server.close(() => process.exit(0));
+  setTimeout(() => {
+    for (const ws of clients.keys()) ws.terminate();
+    process.exit(0);
+  }, 5000).unref();
+}
+
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));

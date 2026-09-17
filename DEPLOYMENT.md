@@ -8,6 +8,7 @@ Không đặt token trong URL, mã nguồn hoặc Git.
 ```powershell
 $env:LECTURER_ACCESS_TOKEN = "thay-bang-chuoi-bi-mat-dai"
 $env:PORT = "3000"
+$env:MAX_REQUEST_BODY_BYTES = "1048576"
 $env:ZOOM_MEETING_URL = "https://us06web.zoom.us/j/meeting-id"
 $env:ZOOM_MEETING_ID = "meeting-id"
 $env:ZOOM_PASSCODE = "mat-khau-zoom"
@@ -22,6 +23,7 @@ npm start
 ```bash
 export LECTURER_ACCESS_TOKEN="thay-bang-chuoi-bi-mat-dai"
 export PORT=3000
+export MAX_REQUEST_BODY_BYTES=1048576
 export ZOOM_MEETING_URL="https://us06web.zoom.us/j/meeting-id"
 export ZOOM_MEETING_ID="meeting-id"
 export ZOOM_PASSCODE="mat-khau-zoom"
@@ -33,6 +35,9 @@ npm start
 
 Mở `/` và chọn vai trò giảng viên. Nhập đúng token khi bắt đầu buổi học.
 Token chỉ được giữ trong `sessionStorage` của tab hiện tại.
+
+Endpoint kiểm tra trạng thái triển khai: `GET /api/health`. Endpoint chỉ trả
+trạng thái cấu hình, không trả token hay mật khẩu Zoom.
 
 ## Kiểm thử realtime
 
@@ -60,3 +65,7 @@ Các API yêu cầu quyền giảng viên gồm:
 Trong môi trường Internet thật vẫn cần triển khai HTTPS/WSS, reverse proxy,
 rate limit và cơ chế đăng nhập người dùng đầy đủ; token dùng ở bước này là
 lớp bảo vệ tối thiểu cho prototype đang chuyển sang triển khai thật.
+
+Server đã có giới hạn body JSON, giới hạn payload WebSocket, giới hạn tần suất
+message theo kết nối, security headers cơ bản và graceful shutdown. Reverse
+proxy vẫn cần giới hạn tốc độ theo IP ở lớp public.
