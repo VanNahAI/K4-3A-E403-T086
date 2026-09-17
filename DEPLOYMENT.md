@@ -69,3 +69,37 @@ lớp bảo vệ tối thiểu cho prototype đang chuyển sang triển khai th
 Server đã có giới hạn body JSON, giới hạn payload WebSocket, giới hạn tần suất
 message theo kết nối, security headers cơ bản và graceful shutdown. Reverse
 proxy vẫn cần giới hạn tốc độ theo IP ở lớp public.
+
+## Deploy production bằng Docker + Caddy
+
+Trên máy chủ đã trỏ DNS của domain về IP máy chủ:
+
+```bash
+cp .env.example .env.production
+# Điền token và thông tin Zoom thật trong .env.production
+export DOMAIN=qa.example.com
+docker compose -f docker-compose.production.yml up -d --build
+docker compose -f docker-compose.production.yml ps
+docker compose -f docker-compose.production.yml logs -f workshop-curator
+```
+
+Trên PowerShell:
+
+```powershell
+Copy-Item .env.example .env.production
+# Điền token và thông tin Zoom thật trong .env.production
+$env:DOMAIN = "qa.example.com"
+docker compose -f docker-compose.production.yml up -d --build
+docker compose -f docker-compose.production.yml ps
+```
+
+Caddy tự cấp HTTPS cho domain và chuyển tiếp cả HTTP lẫn WebSocket tới
+container ứng dụng. Kiểm tra sau khi chạy:
+
+```bash
+curl https://qa.example.com/api/health
+```
+
+Không commit `.env.production`. Nếu dùng Render/Railway/Fly.io thay Docker
+Compose, dùng cùng các biến môi trường trong `.env.example`, start command
+`npm start`, health check path `/api/health`, và bật WebSocket support.

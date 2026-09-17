@@ -1,0 +1,12 @@
+.git
+.gitignore
+.env
+.env.*
+node_modules
+eval
+reflection
+validation
+*.md
+prototype_mock.html
+spec.md
+README*

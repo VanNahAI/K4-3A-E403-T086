@@ -1,6 +1,7 @@
 .DS_Store
 __pycache__/
 .env
+.env.production
 node_modules/
 
 # Hackathon forbidden raw data packs & organizer briefs

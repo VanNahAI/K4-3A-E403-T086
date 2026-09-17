@@ -1,0 +1,4 @@
+{$DOMAIN} {
+  encode gzip
+  reverse_proxy workshop-curator:3000
+}
