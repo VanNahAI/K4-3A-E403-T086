@@ -41,17 +41,18 @@ const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   let pathname = url.pathname;
 
-  // Route aliases
+  // Route aliases to 3-part modular directories
   if (pathname === '/' || pathname === '/portal') {
     pathname = '/portal.html';
   } else if (pathname === '/lecturer') {
-    pathname = '/index.html';
+    pathname = '/lecturer-app/index.html';
   } else if (pathname === '/student') {
-    pathname = '/student.html';
+    pathname = '/student-app/student.html';
   } else if (pathname === '/room' || pathname === '/zoom') {
-    pathname = '/zoom_room.html';
+    pathname = '/lecturer-app/zoom_room.html';
   } else if (pathname === '/pip' || pathname === '/companion') {
-    pathname = '/pip_companion.html';
+    const roleParam = url.searchParams.get('role');
+    pathname = roleParam === 'lecturer' ? '/lecturer-app/pip_lecturer.html' : '/student-app/pip_student.html';
   }
 
   // API: Get / Set pre-configured Zoom meeting link
@@ -137,24 +138,41 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Serve static file from codebase
-  const filePath = path.join(CODEBASE_DIR, pathname);
+  // Serve static files across modular folders
+  const candidatePaths = [
+    path.join(__dirname, pathname),
+    path.join(__dirname, 'student-app', pathname),
+    path.join(__dirname, 'lecturer-app', pathname),
+    path.join(__dirname, 'ai-core', pathname),
+    path.join(__dirname, 'codebase', pathname)
+  ];
 
-  // Security check: prevent directory traversal
-  if (!filePath.startsWith(CODEBASE_DIR)) {
-    res.writeHead(403);
-    res.end("Forbidden");
+  let targetPath = null;
+  for (const cand of candidatePaths) {
+    if (cand.startsWith(__dirname) && fs.existsSync(cand)) {
+      try {
+        if (fs.statSync(cand).isFile()) {
+          targetPath = cand;
+          break;
+        }
+      } catch (e) {}
+    }
+  }
+
+  if (!targetPath) {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=UTF-8' });
+    res.end("404 Not Found");
     return;
   }
 
-  fs.readFile(filePath, (err, data) => {
+  fs.readFile(targetPath, (err, data) => {
     if (err) {
-      res.writeHead(404, { 'Content-Type': 'text/plain; charset=UTF-8' });
-      res.end("404 Not Found");
+      res.writeHead(500, { 'Content-Type': 'text/plain; charset=UTF-8' });
+      res.end("500 Server Error");
       return;
     }
 
-    const ext = path.extname(filePath).toLowerCase();
+    const ext = path.extname(targetPath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
     res.writeHead(200, { 'Content-Type': contentType });
     res.end(data);

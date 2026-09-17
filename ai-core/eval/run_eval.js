@@ -18,7 +18,10 @@ global.localStorage = {
 };
 
 // Require engine
-require('../codebase/ai_engine.js');
+const enginePath = fs.existsSync(path.join(__dirname, '../ai_engine.js'))
+  ? path.join(__dirname, '../ai_engine.js')
+  : path.join(__dirname, '../codebase/ai_engine.js');
+require(enginePath);
 const engine = window.engine;
 
 async function runEvaluation() {

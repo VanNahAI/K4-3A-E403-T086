@@ -19,22 +19,41 @@
 - **Chia cụm theo bàn**, không cần chung đề tài. Chủ đề tự chọn trong khuôn khổ đề bài
 - Nhóm nhỏ thì **chọn lát cắt nhỏ**, và phải có **khảo sát nỗi đau thật** — đây là chỗ ăn điểm nặng nhất
 
-## Bắt đầu từ đâu?
+## 🏗️ Kiến Trúc Dự Án 3 Phần (Modular Architecture)
 
-1. Đọc **`01-challenge-brief.md`** để hiểu khung chung và 5 tiêu chí, rồi **`tracks/README.md`** để chọn track và đề.
-2. Mở **`02-guide.md`** — hướng dẫn từng giai đoạn, đứng ở đâu đọc mục đó.
-3. Viết spec theo **`03-ai-spec-template.md`** — deliverable trung tâm của cả sự kiện.
-4. Đọc **`04-rubric.md`** ngay từ đầu — biết trước bài được chấm theo tiêu chí nào.
+Dự án được phân tách thành **3 module độc lập**, mỗi module có tài liệu kỹ thuật và chỉ dẫn dành riêng cho AI Coding Agents (`AGENTS.md`):
 
-| File / thư mục | Nội dung |
-|---|---|
-| `01-challenge-brief.md` | Đề bài: bảng 5 track · lát cắt · ràng buộc chung · 5 tiêu chí nghiệm thu |
-| `02-guide.md` | Hướng dẫn 5 giai đoạn: khám phá → spec → build → đo & validate → demo |
-| `03-ai-spec-template.md` | Template AI Spec (nộp tại **hạn chốt spec** — xem Lịch) |
-| `04-rubric.md` | Rubric 100 điểm (25 nộp checkpoint + 67 chấm bài + 8 điểm R6) + checklist xác minh 6 mốc |
-| `tracks/` | **5 track**, mỗi đề cùng một khung mục: A VLearn Tutor · B Trợ lý Discord · C Lesson Studio · D Học tập thích ứng & tương tác · E Làn mở (trong phạm vi AI20k) — bắt đầu từ `tracks/README.md` |
-| `data/` | Dữ liệu thật đã ẩn danh: `vlearn-pack/` (chatlog VLearn tutor + 6 transcript bài giảng + 2 bộ slide bản hackathon) và **`discord-pack/` (tin nhắn Discord khoá 4 + bản tin bot)** — dùng để tìm bằng chứng và xây golden set. **Đọc `data/README.md` trước** |
-| `further-reading/` | Tài liệu tham khảo có tóm lược tiếng Việt: **Mom Test** (phỏng vấn), **PAIR Guidebook** (Google, 6 chương), **HAX Toolkit** (Microsoft, 18 nguyên tắc), **JTBD Playbook** + worksheet — bắt đầu từ `further-reading/README.md` |
+```text
+├── ai-core/            # MODULE 1: Lõi AI, gom cụm ngữ nghĩa, LLM & bộ benchmark eval (Golden Set)
+│   ├── AGENTS.md       # Hướng dẫn AI Agent tinh chỉnh thuật toán gom cụm & LLM
+│   └── README.md       # Hướng dẫn kỹ thuật AI Core
+│
+├── student-app/        # MODULE 2: Giao diện học viên (Mobile Portal, PiP, Deflection, Echo Reply)
+│   ├── AGENTS.md       # Hướng dẫn AI Agent nâng cấp trải nghiệm học viên
+│   └── README.md       # Hướng dẫn kỹ thuật Student App
+│
+├── lecturer-app/       # MODULE 3: Buồng lái giảng viên (Cockpit, Radar, Voice Mirror, Zoom Bridge)
+│   ├── AGENTS.md       # Hướng dẫn AI Agent phát triển tính năng Host Cockpit
+│   └── README.md       # Hướng dẫn kỹ thuật Lecturer App
+│
+├── server.js           # Máy chủ điều phối kết nối HTTP & WebSocket toàn hệ thống
+├── portal.html         # Cổng vào workshop chung (chọn vai trò & mở Zoom)
+├── AGENTS.md           # Quy tắc và hướng dẫn Agentic Coding tổng thể cho toàn repo
+├── spec.md             # Bản đặc tả AI Spec chính thức (§1–§9) khóa cứng cho CP4
+└── demo_slides.md      # Kịch bản 6 trang trình chiếu cho buổi Pitch CP5/CP6
+```
+
+### ⚡ Khởi Chạy Nhanh (Quick Start)
+```powershell
+# 1. Khởi động toàn bộ nền tảng (Port 3000)
+npm start          # Hoặc: node server.js
+
+# 2. Chạy kiểm thử tự động Golden Set (24 cases - Đạt 87.5%)
+npm test           # Hoặc: node ai-core/eval/run_eval.js
+
+# 3. Chạy kiểm thử luồng tương tác Realtime WebSocket E2E
+npm run test:e2e   # Hoặc: node ai-core/eval/test_realtime_e2e.js
+```
 
 ## Lịch — 6 checkpoint (ca 3A · 47,5 giờ)
 

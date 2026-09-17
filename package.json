@@ -4,7 +4,9 @@
   "description": "**SPEC → Prototype → Demo.** Đây không phải cuộc thi code — đây là cuộc thi **tư duy sản phẩm AI**.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js",
+    "test": "node ai-core/eval/run_eval.js",
+    "test:e2e": "node ai-core/eval/test_realtime_e2e.js"
   },
   "repository": {
     "type": "git",

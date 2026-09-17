@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Curator AI — Picture-in-Picture Companion</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* Picture-in-Picture Compact Layout */
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background-color: #0b0f19;
+      color: #f8fafc;
+      font-family: var(--font-sans);
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+
+    .pip-header {
+      background: #0f172a;
+      border-bottom: 1px solid #1e293b;
+      padding: 10px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    }
+
+    .pip-brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pip-badge {
+      background: linear-gradient(135deg, #6366f1, #38bdf8);
+      color: #fff;
+      font-weight: 800;
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
+      display: grid;
+      place-items: center;
+      font-size: 0.85rem;
+    }
+
+    .pip-identity {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .pip-name {
+      font-size: 0.84rem;
+      font-weight: 700;
+      color: #f8fafc;
+      line-height: 1.2;
+    }
+
+    .pip-status {
+      font-size: 0.68rem;
+      color: #38bdf8;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .pip-controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-pip-icon {
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #94a3b8;
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 0.72rem;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .btn-pip-icon:hover {
+      color: #fff;
+      border-color: #6366f1;
+    }
+
+    .pip-body {
+      padding: 12px;
+    }
+
+    /* Tabs */
+    .pip-tabs {
+      display: flex;
+      background: #1e293b;
+      border-radius: 8px;
+      padding: 3px;
+      margin-bottom: 12px;
+      gap: 3px;
+    }
+
+    .pip-tab-btn {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      font-weight: 700;
+      padding: 7px 4px;
+      font-size: 0.78rem;
+      border-radius: 6px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+    }
+
+    .pip-tab-btn.active {
+      background: #6366f1;
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
+    }
+
+    /* Student In-Meeting Ask Form */
+    .pip-ask-box {
+      background: #131b2e;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+
+    .pip-textarea {
+      width: 100%;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      color: #fff;
+      padding: 10px 12px;
+      font-size: 0.88rem;
+      font-family: inherit;
+      resize: vertical;
+      min-height: 70px;
+      margin-bottom: 10px;
+      box-sizing: border-box;
+    }
+
+    .pip-textarea:focus {
+      outline: none;
+      border-color: #6366f1;
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+    }
+
+    .btn-pip-submit {
+      width: 100%;
+      background: linear-gradient(135deg, #6366f1, #4f46e5);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-pip-submit:hover {
+      background: #4338ca;
+    }
+
+    /* Instant Deflection / Answer Popup Card */
+    .pip-deflection-card {
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 12px;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .pip-deflection-head {
+      font-size: 0.74rem;
+      color: #34d399;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+
+    .pip-deflection-body {
+      font-size: 0.82rem;
+      color: #f1f5f9;
+      line-height: 1.45;
+      background: rgba(0, 0, 0, 0.25);
+      padding: 8px 10px;
+      border-radius: 6px;
+    }
+
+    /* Full-screen / Overlay Modal for Instant Echo */
+    .pip-modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 200;
+    }
+
+    .pip-modal-card {
+      background: #1e1b4b;
+      border: 2px solid #a855f7;
+      border-radius: 14px;
+      padding: 18px 16px;
+      width: 100%;
+      max-width: 380px;
+      box-shadow: 0 10px 30px rgba(168, 85, 247, 0.4);
+      animation: popIn 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    /* Lecturer Compact Cockpit */
+    .pip-metric-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .pip-kpi {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      padding: 8px 6px;
+      text-align: center;
+    }
+
+    .pip-kpi span {
+      display: block;
+      font-size: 0.65rem;
+      color: #94a3b8;
+    }
+
+    .pip-kpi strong {
+      font-size: 0.95rem;
+      color: #fff;
+    }
+
+    .pip-cluster-card {
+      background: #131b2e;
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 10px;
+      transition: all 0.2s;
+    }
+
+    .pip-cluster-card.urgent {
+      border-color: rgba(239, 68, 68, 0.4);
+      background: linear-gradient(180deg, rgba(239, 68, 68, 0.08) 0%, #131b2e 100%);
+    }
+
+    .pip-cluster-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .pip-cluster-title {
+      font-size: 0.86rem;
+      font-weight: 700;
+      color: #f8fafc;
+      line-height: 1.3;
+      margin-bottom: 8px;
+    }
+
+    .pip-cluster-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .btn-pip-explain {
+      background: #6366f1;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 0.76rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .btn-pip-explain:hover {
+      background: #4f46e5;
+    }
+
+    .toast-faq-notification {
+      position: fixed;
+      bottom: 14px;
+      left: 12px;
+      right: 12px;
+      background: #064e3b;
+      border: 1px solid #34d399;
+      color: #ecfdf5;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 0.78rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+      animation: slideUp 0.3s ease;
+      z-index: 150;
+    }
+
+    @keyframes slideUp {
+      from { transform: translateY(100%); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    @keyframes popIn {
+      from { transform: scale(0.85); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- PiP Top Navigation -->
+  <header class="pip-header">
+    <div class="pip-brand">
+      <div class="pip-badge">Q</div>
+      <div class="pip-identity">
+        <span class="pip-name" id="pip-user-name">Đang tải...</span>
+        <span class="pip-status">
+          <span class="status-dot pulsing" id="pip-ws-dot"></span>
+          <span id="pip-ws-text">Đang kết nối Zoom Live...</span>
+        </span>
+      </div>
+    </div>
+    <div class="pip-controls">
+      <button class="btn-pip-icon" onclick="openFullscreenStage()" title="Mở phòng Zoom toàn màn hình">
+        🖥️ Zoom Tab
+      </button>
+      <button class="btn-pip-icon" onclick="window.close()" title="Đóng cửa sổ">
+        ✕
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Companion Viewport -->
+  <main class="pip-body">
+
+    <!-- =====================================================================
+         STUDENT ATTENDEE VIEW
+         ===================================================================== -->
+    <section id="pip-student-container">
+      
+      <!-- Nav Tabs -->
+      <div class="pip-tabs">
+        <button class="pip-tab-btn active" id="btn-tab-ask" onclick="switchStudentTab('ask')">
+          ❓ Đặt câu hỏi
+        </button>
+        <button class="pip-tab-btn" id="btn-tab-faqs" onclick="switchStudentTab('faqs')">
+          💡 Đáp án từ Thầy (<span id="count-pip-faqs">0</span>)
+        </button>
+      </div>
+
+      <!-- Tab 1: Ask Form -->
+      <div id="pip-view-ask">
+        <div class="pip-ask-box">
+          
+          <!-- Instant Pre-submit Deflection Card (Ground Truth match) -->
+          <div id="pip-deflection-box" class="pip-deflection-card hidden">
+            <div class="pip-deflection-head">
+              <span>⚡ THẦY ĐÃ GIẢI ĐÁP CHỦ ĐỀ NÀY RỒI:</span>
+            </div>
+            <div class="pip-deflection-body" id="pip-deflection-answer">...</div>
+            <small style="color: #34d399; font-size: 0.72rem; margin-top: 4px; display: block;">
+              ✓ Bạn đã có câu trả lời ngay, không cần chờ Thầy giảng lại!
+            </small>
+          </div>
+
+          <form id="form-pip-ask" onsubmit="handleStudentSubmit(event)">
+            <textarea 
+              id="pip-student-input" 
+              class="pip-textarea" 
+              placeholder="Bạn đang vướng mắc gì trong bài Lab hoặc buổi học? Gõ vào đây..."
+              required
+              oninput="handleTypingDeflection(this.value)"
+            ></textarea>
+            <button type="submit" class="btn-pip-submit" id="btn-pip-send">
+              <span>Gửi câu hỏi lên lớp</span> 🚀
+            </button>
+          </form>
+        </div>
+
+        <!-- Student Sent History -->
+        <div style="font-size: 0.76rem; color: #94a3b8; font-weight: 700; text-transform: uppercase; margin-bottom: 8px; display: flex; justify-content: space-between;">
+          <span>Câu hỏi của bạn trong buổi này</span>
+          <span id="pip-my-count">0 câu</span>
+        </div>
+        <div id="pip-my-history-list">
+          <div style="text-align: center; padding: 20px; color: #64748b; font-size: 0.78rem;">
+            Chưa gửi câu hỏi nào. Khi bạn gặp lỗi, gõ vào ô phía trên!
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: Live FAQs Feed -->
+      <div id="pip-view-faqs" class="hidden">
+        <div style="font-size: 0.76rem; color: #94a3b8; font-weight: 700; text-transform: uppercase; margin-bottom: 8px;">
+          <span>Kho tri thức Thầy đã đúc kết trong buổi:</span>
+        </div>
+        <div id="pip-faqs-list">
+          <div style="text-align: center; padding: 24px; color: #64748b; font-size: 0.8rem;">
+            Chưa có câu hỏi nào được giải thích chính thức.
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- =====================================================================
+         LECTURER HOST VIEW (COCKPIT IN PIP)
+         ===================================================================== -->
+    <section id="pip-lecturer-container" class="hidden">
+      
+      <!-- KPI Status -->
+      <div class="pip-metric-grid">
+        <div class="pip-kpi">
+          <span>HV Online</span>
+          <strong id="pip-lec-online" style="color: #38bdf8;">0</strong>
+        </div>
+        <div class="pip-kpi">
+          <span>Tin nhắn</span>
+          <strong id="pip-lec-msgs">0</strong>
+        </div>
+        <div class="pip-kpi">
+          <span>Cụm câu hỏi</span>
+          <strong id="pip-lec-clusters" style="color: #6366f1;">0</strong>
+        </div>
+        <div class="pip-kpi">
+          <span>Tự động trả lời</span>
+          <strong id="pip-lec-echo" style="color: #34d399;">0</strong>
+        </div>
+      </div>
+
+      <!-- Velocity Spike Alert (Cháy chat radar) -->
+      <div id="pip-radar-alert" class="pip-deflection-card hidden" style="background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.4);">
+        <div style="font-size: 0.76rem; color: #f87171; font-weight: 800;">
+          🔥 CẢNH BÁO CHÁY CHAT: Nhiều học viên cùng kẹt một vấn đề!
+        </div>
+        <small style="color: #cbd5e1; font-size: 0.74rem;">Khuyến nghị dừng màn hình để giải thích.</small>
+      </div>
+
+      <!-- Clusters Header -->
+      <div style="font-size: 0.76rem; color: #94a3b8; font-weight: 700; text-transform: uppercase; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+        <span>Cụm câu hỏi nóng từ lớp học</span>
+      </div>
+
+      <!-- Clusters Container -->
+      <div id="pip-clusters-list">
+        <div style="text-align: center; padding: 28px; color: #64748b; font-size: 0.8rem;">
+          Đang lắng nghe câu hỏi từ học viên trong lớp...
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- =========================================================================
+       POPUP MODAL: Instant Echo-Reply (When Student Asks An Answered Question)
+       ========================================================================= -->
+  <div id="modal-pip-echo" class="pip-modal-overlay hidden">
+    <div class="pip-modal-card">
+      <div style="text-align: center; margin-bottom: 10px;">
+        <span style="font-size: 1.8rem;">⚡</span>
+        <h3 style="font-size: 1rem; color: #d8b4fe; font-weight: 800; margin: 4px 0;">ĐÁP ÁN TỨC THÌ TỪ GIẢNG VIÊN</h3>
+        <p style="font-size: 0.74rem; color: #c4b5fd; margin: 0;">AI nhận diện câu hỏi của bạn trùng với nội dung Thầy vừa giải thích!</p>
+      </div>
+
+      <div style="background: rgba(0, 0, 0, 0.35); border-radius: 8px; padding: 10px; margin-bottom: 12px; border-left: 3px solid #10b981;">
+        <div style="font-size: 0.68rem; color: #34d399; font-weight: 700; margin-bottom: 4px;" id="pip-echo-time">
+          GIẢNG VIÊN ĐÃ GIẢI THÍCH:
+        </div>
+        <div style="font-size: 0.82rem; color: #f8fafc; line-height: 1.45;" id="pip-echo-answer">
+          ...
+        </div>
+      </div>
+
+      <button class="btn btn-accent" style="width: 100%; padding: 8px; font-weight: 700; font-size: 0.84rem;" onclick="closePipEchoModal()">
+        Đã hiểu, cảm ơn Thầy! ✓
+      </button>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       POPUP MODAL: Lecturer Explanation / Voice Mic
+       ========================================================================= -->
+  <div id="modal-pip-explain" class="pip-modal-overlay hidden">
+    <div class="pip-modal-card" style="max-width: 400px; background: #0f172a; border-color: #6366f1;">
+      <h3 style="font-size: 0.95rem; color: #fff; font-weight: 800; margin-bottom: 8px;">🎙️ Giải thích &amp; Đúc kết FAQ</h3>
+      <p style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 10px;" id="pip-explain-cluster-name">Chủ đề: ...</p>
+
+      <div style="margin-bottom: 10px;">
+        <button id="btn-pip-mic" class="btn btn-sm btn-mic" style="width: 100%;" onclick="togglePipMic()">
+          🎙️ Bật Micro nói trực tiếp
+        </button>
+      </div>
+
+      <textarea id="pip-explain-text" class="pip-textarea" placeholder="Nhập hoặc nói lời giải thích của Thầy vào đây..." style="min-height: 80px;"></textarea>
+
+      <div style="display: flex; gap: 8px; justify-content: flex-end;">
+        <button class="btn btn-sm btn-outline" onclick="closePipExplainModal()">Hủy</button>
+        <button class="btn btn-sm btn-accent" onclick="confirmPipExplanation()">✓ Hoàn tất &amp; Kích hoạt Auto-Reply</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="pip-toast" class="toast-faq-notification hidden">
+    <span id="pip-toast-text">🔔 Thầy vừa giải thích câu hỏi mới!</span>
+    <button style="background: none; border: none; color: #ecfdf5; font-weight: bold; cursor: pointer;" onclick="document.getElementById('pip-toast').classList.add('hidden')">✕</button>
+  </div>
+
+  <script src="/ai-core/ai_engine.js"></script>
+  <script src="pip_lecturer.js"></script>
+</body>
+</html>
