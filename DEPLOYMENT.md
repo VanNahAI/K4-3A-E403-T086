@@ -14,6 +14,7 @@ $env:ZOOM_MEETING_ID = "meeting-id"
 $env:ZOOM_PASSCODE = "mat-khau-zoom"
 $env:ZOOM_TOPIC = "AI20K Workshop"
 $env:ZOOM_SPEAKER = "Ten giang vien"
+$env:ZOOM_WEBHOOK_SECRET_TOKEN = "secret-token-tu-Zoom-Marketplace"
 $env:ENABLE_SIMULATION = "false"
 npm start
 ```
@@ -29,6 +30,7 @@ export ZOOM_MEETING_ID="meeting-id"
 export ZOOM_PASSCODE="mat-khau-zoom"
 export ZOOM_TOPIC="AI20K Workshop"
 export ZOOM_SPEAKER="Ten giang vien"
+export ZOOM_WEBHOOK_SECRET_TOKEN="secret-token-tu-Zoom-Marketplace"
 export ENABLE_SIMULATION=false
 npm start
 ```
@@ -38,6 +40,32 @@ Token chỉ được giữ trong `sessionStorage` của tab hiện tại.
 
 Endpoint kiểm tra trạng thái triển khai: `GET /api/health`. Endpoint chỉ trả
 trạng thái cấu hình, không trả token hay mật khẩu Zoom.
+
+## Nhận chat native từ Zoom Desktop
+
+Ứng dụng có endpoint webhook:
+
+```text
+POST /api/zoom/webhook
+```
+
+Trong Zoom Marketplace, tạo app có Meeting event `meeting.chat_message_sent`,
+đặt Event Notification Endpoint URL thành:
+
+```text
+https://<domain-public>/api/zoom/webhook
+```
+
+Sau đó lấy Secret Token của webhook đưa vào `ZOOM_WEBHOOK_SECRET_TOKEN`. Zoom
+sẽ gửi cả bước URL validation và chữ ký `x-zm-signature`; server kiểm tra cả hai
+trước khi đưa tin nhắn vào luồng `/lecturer`. Endpoint này cần HTTPS public,
+không thể nhận webhook từ `localhost`.
+
+Tin nhắn native được chuẩn hóa thành `new_student_question`, có tên người gửi,
+thời gian, nội dung và cờ `source: zoom_webhook`. Khi tin trùng FAQ, lecturer
+vẫn nhìn thấy câu hỏi ở trạng thái auto-resolved. Việc gửi câu trả lời ngược
+trở lại cửa sổ Zoom cần thêm quyền/API gửi chat của Zoom; webhook nhận tin một
+chiều không tự gửi trả lời vào meeting.
 
 ## Kiểm thử realtime
 
@@ -61,6 +89,9 @@ Các API yêu cầu quyền giảng viên gồm:
 - `POST /api/reset-session`
 - `POST /api/config-zoom`
 - `POST /api/zoom-import`
+
+Webhook Zoom được xác thực riêng bằng `ZOOM_WEBHOOK_SECRET_TOKEN`, không dùng
+`LECTURER_ACCESS_TOKEN`.
 
 Trong môi trường Internet thật vẫn cần triển khai HTTPS/WSS, reverse proxy,
 rate limit và cơ chế đăng nhập người dùng đầy đủ; token dùng ở bước này là

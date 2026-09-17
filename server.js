@@ -22,6 +22,8 @@ const ZOOM_MEETING_ID = String(process.env.ZOOM_MEETING_ID || '').trim();
 const ZOOM_PASSCODE = String(process.env.ZOOM_PASSCODE || '').trim();
 const ZOOM_TOPIC = String(process.env.ZOOM_TOPIC || 'AI20K Workshop').trim();
 const ZOOM_SPEAKER = String(process.env.ZOOM_SPEAKER || '').trim();
+const ZOOM_WEBHOOK_SECRET_TOKEN = String(process.env.ZOOM_WEBHOOK_SECRET_TOKEN || '').trim();
+const ZOOM_WEBHOOK_MAX_CLOCK_SKEW_SECONDS = 5 * 60;
 const configuredBodyLimit = Number(process.env.MAX_REQUEST_BODY_BYTES);
 const MAX_REQUEST_BODY_BYTES = Number.isInteger(configuredBodyLimit) && configuredBodyLimit > 0
   ? configuredBodyLimit
@@ -116,7 +118,7 @@ function readJsonBody(req, res, onJson) {
   req.on('end', () => {
     if (finished) return;
     try {
-      onJson(JSON.parse(body));
+      onJson(JSON.parse(body), body);
     } catch (error) {
       sendJson(res, 400, {
         success: false,
@@ -180,6 +182,57 @@ function isValidZoomUrl(value) {
   }
 }
 
+function normalizeMeetingId(value) {
+  return String(value || '').replace(/\D/g, '');
+}
+
+function hasValidZoomWebhookSignature(req, rawBody) {
+  if (!ZOOM_WEBHOOK_SECRET_TOKEN) return false;
+
+  const timestamp = String(req.headers['x-zm-request-timestamp'] || '').trim();
+  const receivedSignature = String(req.headers['x-zm-signature'] || '').trim();
+  const timestampNumber = Number(timestamp);
+  if (!timestamp || !receivedSignature || !Number.isFinite(timestampNumber)) return false;
+  if (Math.abs(Date.now() - timestampNumber * 1000) > ZOOM_WEBHOOK_MAX_CLOCK_SKEW_SECONDS * 1000) {
+    return false;
+  }
+
+  const message = `v0:${timestamp}:${rawBody}`;
+  const expectedSignature = `v0=${crypto
+    .createHmac('sha256', ZOOM_WEBHOOK_SECRET_TOKEN)
+    .update(message)
+    .digest('hex')}`;
+  const expectedBuffer = Buffer.from(expectedSignature, 'utf8');
+  const receivedBuffer = Buffer.from(receivedSignature, 'utf8');
+  return expectedBuffer.length === receivedBuffer.length && crypto.timingSafeEqual(expectedBuffer, receivedBuffer);
+}
+
+function createZoomWebhookValidationResponse(plainToken) {
+  return {
+    plainToken,
+    encryptedToken: crypto
+      .createHmac('sha256', ZOOM_WEBHOOK_SECRET_TOKEN)
+      .update(plainToken)
+      .digest('hex')
+  };
+}
+
+function formatIncomingTimestamp(value) {
+  const date = value ? new Date(value) : new Date();
+  if (Number.isNaN(date.getTime())) {
+    return new Date().toLocaleTimeString('vi-VN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  }
+  return date.toLocaleTimeString('vi-VN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+}
+
 function isAuthorizedLecturer(client) {
   return Boolean(client && client.role === 'lecturer' && client.authenticated);
 }
@@ -228,8 +281,78 @@ const server = http.createServer((req, res) => {
       service: 'workshop-question-curator',
       lecturerAuthConfigured: Boolean(LECTURER_ACCESS_TOKEN),
       zoomConfigured: isValidZoomUrl(zoomMeetingConfig.url),
+      zoomWebhookConfigured: Boolean(ZOOM_WEBHOOK_SECRET_TOKEN),
       simulationEnabled: ENABLE_SIMULATION,
       sessionOpen: sessionState.isOpen
+    });
+    return;
+  }
+
+  // Zoom sends native meeting chat events here. This endpoint is intentionally
+  // separate from lecturer auth: Zoom authenticates the request with its
+  // x-zm-signature header and webhook secret token.
+  if (req.method === 'POST' && pathname === '/api/zoom/webhook') {
+    readJsonBody(req, res, (json, rawBody) => {
+      if (!ZOOM_WEBHOOK_SECRET_TOKEN) {
+        sendJson(res, 503, {
+          success: false,
+          code: 'ZOOM_WEBHOOK_NOT_CONFIGURED',
+          message: 'Server chưa cấu hình ZOOM_WEBHOOK_SECRET_TOKEN.'
+        });
+        return;
+      }
+
+      if (!hasValidZoomWebhookSignature(req, rawBody)) {
+        sendJson(res, 401, {
+          success: false,
+          code: 'ZOOM_WEBHOOK_SIGNATURE_INVALID',
+          message: 'Chữ ký webhook Zoom không hợp lệ hoặc đã hết hạn.'
+        });
+        return;
+      }
+
+      if (json.event === 'endpoint.url_validation') {
+        const plainToken = String(json.payload?.plainToken || '').trim();
+        if (!plainToken) {
+          sendJson(res, 400, {
+            success: false,
+            code: 'ZOOM_WEBHOOK_VALIDATION_TOKEN_MISSING',
+            message: 'Thiếu payload.plainToken cho bước xác thực webhook Zoom.'
+          });
+          return;
+        }
+        sendJson(res, 200, createZoomWebhookValidationResponse(plainToken));
+        return;
+      }
+
+      if (json.event !== 'meeting.chat_message_sent') {
+        sendJson(res, 200, {
+          success: true,
+          received: true,
+          ignored: json.event || 'unknown_event'
+        });
+        return;
+      }
+
+      const meetingObject = json.payload?.object || {};
+      const chatMessage = meetingObject.chat_message || {};
+      const configuredMeetingId = normalizeMeetingId(zoomMeetingConfig.meetingId);
+      const incomingMeetingId = normalizeMeetingId(meetingObject.id);
+      if (configuredMeetingId && incomingMeetingId && configuredMeetingId !== incomingMeetingId) {
+        sendJson(res, 200, {
+          success: true,
+          received: true,
+          ignored: 'MEETING_ID_MISMATCH'
+        });
+        return;
+      }
+
+      const result = ingestZoomChatMessage(chatMessage, meetingObject, json.event_ts);
+      sendJson(res, 200, {
+        success: true,
+        received: true,
+        ...result
+      });
     });
     return;
   }
@@ -405,6 +528,7 @@ let sessionState = {
   sessionId: createSessionId(),
   startedAt: null
 };
+const processedZoomMessageIds = new Set();
 
 function createSessionId() {
   return `SESSION_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
@@ -492,6 +616,77 @@ function matchWithServerFaqs(text) {
   }
 
   return bestScore >= 2.5 ? bestFaq : null;
+}
+
+function rememberZoomMessage(messageId) {
+  const normalizedId = String(messageId || '').trim();
+  if (!normalizedId) return false;
+  if (processedZoomMessageIds.has(normalizedId)) return true;
+
+  processedZoomMessageIds.add(normalizedId);
+  while (processedZoomMessageIds.size > 1000) {
+    const oldestId = processedZoomMessageIds.values().next().value;
+    processedZoomMessageIds.delete(oldestId);
+  }
+  return false;
+}
+
+function ingestZoomChatMessage(chatMessage, meetingObject, eventTimestamp) {
+  if (!sessionState.isOpen) {
+    return { accepted: false, ignored: 'SESSION_NOT_OPEN' };
+  }
+
+  const messageId = String(chatMessage.message_id || '').trim();
+  if (rememberZoomMessage(messageId)) {
+    return { accepted: false, duplicate: true, messageId };
+  }
+
+  const content = String(chatMessage.message_content || '').trim();
+  if (!content) {
+    return { accepted: false, ignored: 'EMPTY_MESSAGE', messageId };
+  }
+
+  sessionQuestionsCount++;
+  const senderName = String(chatMessage.sender_name || '').trim() || 'Học viên Zoom';
+  const questionPayload = {
+    id: `ZM${1000 + sessionQuestionsCount}`,
+    user: senderName,
+    content,
+    timestamp: formatIncomingTimestamp(chatMessage.date_time || eventTimestamp),
+    clientId: `ZOOM_${String(chatMessage.sender_session_id || senderName).trim()}`,
+    source: 'zoom_webhook',
+    zoomMessageId: messageId || null,
+    recipientType: chatMessage.recipient_type || 'everyone'
+  };
+
+  const matchedFaq = matchWithServerFaqs(questionPayload.content);
+  if (matchedFaq) {
+    matchedFaq.servedStudentsCount = (matchedFaq.servedStudentsCount || 0) + 1;
+    broadcastToRole('lecturer', {
+      type: 'new_student_question',
+      question: questionPayload,
+      isEcho: true,
+      matchedFaq
+    });
+    broadcastToRole('lecturer', {
+      type: 'echo_resolved_event',
+      question: questionPayload,
+      matchedFaq
+    });
+  } else {
+    broadcastToRole('lecturer', {
+      type: 'new_student_question',
+      question: questionPayload,
+      isEcho: false
+    });
+  }
+
+  return {
+    accepted: true,
+    messageId: messageId || questionPayload.id,
+    questionId: questionPayload.id,
+    isEcho: Boolean(matchedFaq)
+  };
 }
 
 function normalizeSearchText(value) {
