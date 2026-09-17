@@ -4,7 +4,10 @@
   "description": "**SPEC → Prototype → Demo.** Đây không phải cuộc thi code — đây là cuộc thi **tư duy sản phẩm AI**.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js",
+    "test:realtime": "node eval/test_realtime_e2e.js",
+    "test:clustering": "node eval/test_clustering_regressions.js",
+    "test": "npm run test:clustering"
   },
   "repository": {
     "type": "git",

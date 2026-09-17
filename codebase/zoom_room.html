@@ -11,6 +11,20 @@
 </head>
 <body>
 
+  <!-- Symbolic Zoom waiting room shown until the lecturer starts the class. -->
+  <div id="meeting-closed-overlay" class="meeting-closed-overlay hidden">
+    <div class="meeting-closed-card">
+      <div class="meeting-closed-icon">🔒</div>
+      <div class="meeting-closed-brand">Zoom</div>
+      <h1>Lớp học chưa mở</h1>
+      <p id="meeting-closed-message">Giảng viên chưa bắt đầu cuộc họp. Bạn không thể tham gia lúc này.</p>
+      <div class="meeting-closed-actions">
+        <button class="btn-meeting-action primary" onclick="retryMeetingAccess()">↻ Thử lại</button>
+        <button class="btn-meeting-action" onclick="window.location.href='/'">← Quay lại cổng Workshop</button>
+      </div>
+    </div>
+  </div>
+
   <!-- =========================================================================
        ZOOM IN-MEETING STAGE LAYOUT
        ========================================================================= -->

@@ -13,6 +13,9 @@ let studentId = localStorage.getItem('curator_student_id') || `S${Math.floor(100
 let myQuestions = JSON.parse(localStorage.getItem('curator_my_questions') || '[]');
 let activeFaqs = [];
 let currentStudentTab = 'ask';
+let activeSessionId = null;
+let isSessionOpen = false;
+let isWebSocketConnected = false;
 
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('tag-student-id').textContent = `${studentId} ▾`;
@@ -31,6 +34,7 @@ function initWebSocket() {
     ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
+      isWebSocketConnected = true;
       updateStatus(true, "Đã kết nối Workshop");
       ws.send(JSON.stringify({
         type: 'register_role',
@@ -49,6 +53,7 @@ function initWebSocket() {
     };
 
     ws.onclose = () => {
+      isWebSocketConnected = false;
       updateStatus(false, "Mất kết nối (Đang thử lại...)");
       setTimeout(initWebSocket, 3000);
     };
@@ -57,6 +62,7 @@ function initWebSocket() {
       updateStatus(false, "Lỗi kết nối");
     };
   } catch (err) {
+    isWebSocketConnected = false;
     updateStatus(false, "Offline");
   }
 }
@@ -79,6 +85,7 @@ function updateStatus(isOnline, text) {
 function handleServerMessage(msg) {
   switch (msg.type) {
     case 'connected':
+      syncStudentSession(msg.session);
       if (Array.isArray(msg.activeFaqs)) {
         activeFaqs = msg.activeFaqs;
         renderFaqFeed();
@@ -87,7 +94,7 @@ function handleServerMessage(msg) {
 
     case 'new_faq_available':
       // Prepend newly resolved FAQ from lecturer
-      activeFaqs.unshift(msg.faq);
+      if (msg.faq && !activeFaqs.some(faq => faq.id === msg.faq.id)) activeFaqs.unshift(msg.faq);
       renderFaqFeed();
       break;
 
@@ -102,10 +109,67 @@ function handleServerMessage(msg) {
       // Acknowledged
       break;
 
+    case 'session_started':
+      syncStudentSession(msg.session, true);
+      break;
+
+    case 'session_ended':
+      syncStudentSession(msg.session, true);
+      break;
+
+    case 'meeting_not_started':
+      isSessionOpen = false;
+      updateStudentAccess();
+      break;
+
+    case 'session_stale':
+      window.location.reload();
+      break;
+
     case 'instant_echo_reply':
       // The student asked something that matches a verified FAQ!
       showInstantEchoModal(msg);
       break;
+  }
+}
+
+function syncStudentSession(session, forceClear = false) {
+  if (!session || !session.sessionId) return;
+
+  let storedSessionId = null;
+  try {
+    storedSessionId = localStorage.getItem('curator_active_session_id');
+    localStorage.setItem('curator_active_session_id', session.sessionId);
+  } catch (error) {
+    // Keep the in-memory session working when storage is unavailable.
+  }
+
+  if (forceClear || (storedSessionId && storedSessionId !== session.sessionId)) {
+    myQuestions = [];
+    localStorage.setItem('curator_my_questions', '[]');
+    renderMyQuestions();
+  }
+
+  activeSessionId = session.sessionId;
+  isSessionOpen = Boolean(session.isOpen);
+  updateStudentAccess();
+}
+
+function updateStudentAccess() {
+  const input = document.getElementById('student-msg-input');
+  const submit = document.getElementById('btn-submit-q');
+  const canAsk = isWebSocketConnected && isSessionOpen;
+  if (input) {
+    input.disabled = !canAsk;
+    input.placeholder = canAsk
+      ? 'Bạn đang vướng mắc gì trong bài Lab hoặc buổi học? Gõ vào đây...'
+      : 'Lớp chưa mở — hãy chờ Giảng viên bắt đầu cuộc họp.';
+  }
+  if (submit) submit.disabled = !canAsk;
+  if (!canAsk && isWebSocketConnected) {
+    updateStatus(true, 'Lớp chưa mở — chờ Giảng viên');
+  } else if (canAsk) {
+    updateStatus(true, 'Đã kết nối Workshop');
   }
 }
 
@@ -137,6 +201,11 @@ function setupStudentEvents() {
     const content = input.value.trim();
     if (!content) return;
 
+    if (!isSessionOpen || !isWebSocketConnected) {
+      alert('Lớp chưa mở hoặc kết nối đang gián đoạn. Vui lòng thử lại sau.');
+      return;
+    }
+
     // Send to server via WebSocket
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({
@@ -163,16 +232,55 @@ function setupStudentEvents() {
 }
 
 function findMatchingFaq(text) {
+  const normalizedText = normalizeFaqText(text);
+  const questionTokens = new Set(normalizedText.split(' ').filter(Boolean));
+  let bestFaq = null;
+  let bestScore = 0;
+
   for (const faq of activeFaqs) {
-    if (faq.keywords && Array.isArray(faq.keywords)) {
-      for (const kw of faq.keywords) {
-        if (text.includes(kw.toLowerCase())) {
-          return faq;
-        }
+    const title = faq.canonicalQuestion || faq.originalClusterTitle || faq.title || '';
+    const titleTokens = new Set(normalizeFaqText(title).split(' ').filter(Boolean));
+    let score = 0;
+    let exactHits = 0;
+    let distinctiveHit = false;
+
+    for (const term of [...(faq.keywords || []), title]) {
+      const normalizedTerm = normalizeFaqText(term);
+      if (!normalizedTerm || normalizedTerm.length < 2) continue;
+      if (normalizedText.includes(normalizedTerm)) {
+        exactHits++;
+        score += normalizedTerm.includes(' ') ? 1.5 : 1;
+        if (normalizedTerm.length >= 4) distinctiveHit = true;
       }
     }
+
+    let titleOverlap = 0;
+    for (const token of questionTokens) {
+      if (token.length >= 2 && titleTokens.has(token)) titleOverlap++;
+    }
+    score += Math.min(titleOverlap, 3) * 0.5;
+
+    if (exactHits >= 2 && distinctiveHit) score += 1;
+    else if (!(exactHits >= 1 && titleOverlap >= 2 && distinctiveHit)) score = 0;
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestFaq = faq;
+    }
   }
-  return null;
+
+  return bestScore >= 2.5 ? bestFaq : null;
+}
+
+function normalizeFaqText(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function renderMyQuestions() {
@@ -239,6 +347,15 @@ function switchStudentTab(tab) {
 }
 
 function showInstantEchoModal(data) {
+  const normalizedQuestion = normalizeFaqText(data.studentMsg || '');
+  if (normalizedQuestion) {
+    const matchedQuestion = myQuestions.find(q => normalizeFaqText(q.content) === normalizedQuestion);
+    if (matchedQuestion) {
+      matchedQuestion.status = 'Đã trả lời — xem Đáp án từ Thầy';
+      localStorage.setItem('curator_my_questions', JSON.stringify(myQuestions.slice(0, 20)));
+      renderMyQuestions();
+    }
+  }
   document.getElementById('echo-modal-time').textContent = `GIẢNG VIÊN ĐÃ GIẢI THÍCH (LÚC ${data.resolvedAt}):`;
   document.getElementById('echo-modal-answer').textContent = data.answer;
   document.getElementById('modal-student-echo').classList.remove('hidden');

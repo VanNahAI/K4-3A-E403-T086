@@ -30,6 +30,86 @@ body {
   overflow: hidden;
 }
 
+.hidden {
+  display: none !important;
+}
+
+/* Local test equivalent of Zoom's waiting-room / meeting-not-started state. */
+.meeting-closed-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: radial-gradient(circle at 50% 35%, #1e293b 0%, #090b10 62%);
+}
+
+.meeting-closed-card {
+  width: min(480px, 100%);
+  padding: 34px 30px;
+  border: 1px solid #343747;
+  border-radius: 18px;
+  background: rgba(26, 26, 36, 0.96);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+  text-align: center;
+}
+
+.meeting-closed-icon {
+  margin-bottom: 6px;
+  font-size: 2.6rem;
+}
+
+.meeting-closed-brand {
+  color: #5aa8ff;
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+.meeting-closed-card h1 {
+  margin: 16px 0 8px;
+  color: #fff;
+  font-size: 1.35rem;
+}
+
+.meeting-closed-card p {
+  color: var(--zoom-text-dim);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.meeting-closed-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+}
+
+.btn-meeting-action {
+  padding: 9px 14px;
+  border: 1px solid var(--zoom-border);
+  border-radius: 7px;
+  background: #20212c;
+  color: #d8dbe5;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.btn-meeting-action:hover {
+  border-color: #5a6cff;
+  color: #fff;
+}
+
+.btn-meeting-action.primary {
+  border-color: #0b5cff;
+  background: #0b5cff;
+  color: #fff;
+}
+
 .zoom-app-container {
   display: flex;
   flex-direction: column;

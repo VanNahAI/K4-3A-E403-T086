@@ -295,6 +295,61 @@
       gap: 6px;
     }
 
+    .pip-quotes-toggle {
+      width: 100%;
+      margin-top: 10px;
+      padding: 7px 9px;
+      border: 1px solid #334155;
+      border-radius: 7px;
+      background: #0f172a;
+      color: #93c5fd;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .pip-quotes-toggle:hover {
+      border-color: #6366f1;
+      color: #c7d2fe;
+    }
+
+    .pip-quotes-list {
+      margin-top: 7px;
+      max-height: 210px;
+      overflow-y: auto;
+      display: grid;
+      gap: 6px;
+    }
+
+    .pip-quotes-list.hidden {
+      display: none;
+    }
+
+    .pip-quote-row {
+      padding: 8px;
+      border-left: 2px solid #6366f1;
+      border-radius: 6px;
+      background: rgba(15, 23, 42, 0.88);
+    }
+
+    .pip-quote-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 3px;
+      color: #a5b4fc;
+      font-size: 0.66rem;
+      font-weight: 700;
+    }
+
+    .pip-quote-content {
+      color: #e2e8f0;
+      font-size: 0.74rem;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+
     .btn-pip-explain {
       background: #6366f1;
       color: #fff;
@@ -378,6 +433,11 @@
          STUDENT ATTENDEE VIEW
          ===================================================================== -->
     <section id="pip-student-container">
+
+      <div id="pip-session-closed" class="pip-deflection-card hidden" style="border-color: rgba(245, 158, 11, 0.45); background: rgba(245, 158, 11, 0.1);">
+        <div class="pip-deflection-head" style="color: #fbbf24;">🔒 LỚP CHƯA MỞ</div>
+        <div class="pip-deflection-body">Giảng viên chưa bắt đầu cuộc họp. Bạn chưa thể gửi câu hỏi trong phiên này.</div>
+      </div>
       
       <!-- Nav Tabs -->
       <div class="pip-tabs">
@@ -500,8 +560,8 @@
     <div class="pip-modal-card">
       <div style="text-align: center; margin-bottom: 10px;">
         <span style="font-size: 1.8rem;">⚡</span>
-        <h3 style="font-size: 1rem; color: #d8b4fe; font-weight: 800; margin: 4px 0;">ĐÁP ÁN TỨC THÌ TỪ GIẢNG VIÊN</h3>
-        <p style="font-size: 0.74rem; color: #c4b5fd; margin: 0;">AI nhận diện câu hỏi của bạn trùng với nội dung Thầy vừa giải thích!</p>
+        <h3 style="font-size: 1rem; color: #d8b4fe; font-weight: 800; margin: 4px 0;">CÂU HỎI NÀY ĐÃ ĐƯỢC GIẢNG VIÊN TRẢ LỜI</h3>
+        <p style="font-size: 0.74rem; color: #c4b5fd; margin: 0;">Bạn có thể xem lại nội dung này trong tab “Đáp án từ Thầy”.</p>
       </div>
 
       <div style="background: rgba(0, 0, 0, 0.35); border-radius: 8px; padding: 10px; margin-bottom: 12px; border-left: 3px solid #10b981;">

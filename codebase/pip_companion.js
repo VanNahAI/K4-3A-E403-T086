@@ -15,6 +15,10 @@ let totalLecMsgs = 0;
 let totalEchoShielded = 0;
 let recognition = null;
 let activeExplainingCluster = null;
+let activeSessionId = null;
+let isSessionOpen = false;
+const handledEchoQuestionIds = new Set();
+const expandedClusterIds = new Set();
 
 // Stopwords for local deflection matching
 const genericStopwords = ["lỗi", "em", "thầy", "cho", "hỏi", "bị", "là", "sao", "thế", "nào", "ạ", "với", "trong", "bài", "ở"];
@@ -87,6 +91,7 @@ function connectWebSocket() {
 async function handleServerMessage(msg) {
   switch (msg.type) {
     case 'connected':
+      syncPipSession(msg.session);
       if (msg.activeFaqs && Array.isArray(msg.activeFaqs)) {
         activeFaqs = msg.activeFaqs;
         renderStudentFaqs();
@@ -94,22 +99,48 @@ async function handleServerMessage(msg) {
       break;
 
     case 'student_count':
+    case 'online_students_count':
       const onlineEl = document.getElementById('pip-lec-online');
       if (onlineEl) onlineEl.textContent = msg.count || 1;
       break;
 
     case 'new_faq_available':
       // Broadcast from teacher
-      if (msg.faq) {
+      if (msg.faq && !activeFaqs.some(faq => faq.id === msg.faq.id)) {
         activeFaqs.unshift(msg.faq);
         renderStudentFaqs();
         showNotificationToast(`🔔 Thầy vừa giải thích: "${msg.faq.canonicalQuestion}"`);
       }
       break;
 
+    case 'faqs_refreshed':
+      if (Array.isArray(msg.faqs)) {
+        activeFaqs = msg.faqs;
+        renderStudentFaqs();
+      }
+      break;
+
+    case 'session_started':
+      syncPipSession(msg.session, true);
+      showNotificationToast('✓ Giảng viên đã mở phiên học mới.');
+      break;
+
+    case 'session_ended':
+      syncPipSession(msg.session, true);
+      break;
+
+    case 'meeting_not_started':
+      isSessionOpen = false;
+      updatePipStudentAccess();
+      break;
+
+    case 'session_stale':
+      window.location.reload();
+      break;
+
     case 'instant_echo_reply':
       // Direct echo answer from server/AI
-      openPipEchoModal(msg.answer, msg.resolvedAt, msg.faqTitle);
+      openPipEchoModal(msg.answer, msg.resolvedAt, msg.faqTitle, msg.studentMsg);
       break;
 
     case 'new_student_question':
@@ -117,7 +148,12 @@ async function handleServerMessage(msg) {
       if (currentRole === 'lecturer' && msg.question) {
         totalLecMsgs++;
         document.getElementById('pip-lec-msgs').textContent = totalLecMsgs;
-        if (window.engine) {
+        if (msg.isEcho && msg.matchedFaq) {
+          handledEchoQuestionIds.add(msg.question.id);
+          totalEchoShielded++;
+          document.getElementById('pip-lec-echo').textContent = totalEchoShielded;
+          addQuestionToLecturerClusters(msg.question, msg.matchedFaq);
+        } else if (window.engine) {
           await window.engine.processMessage(msg.question.content, msg.question.user);
           lecturerClusters = window.engine.clusters;
           renderLecturerClusters();
@@ -130,11 +166,56 @@ async function handleServerMessage(msg) {
     case 'echo_resolved_event':
       // Lecturer view: an echo was automatically deflected
       if (currentRole === 'lecturer') {
-        totalEchoShielded++;
-        document.getElementById('pip-lec-echo').textContent = totalEchoShielded;
+        if (!handledEchoQuestionIds.has(msg.question && msg.question.id)) {
+          handledEchoQuestionIds.add(msg.question && msg.question.id);
+          totalEchoShielded++;
+          document.getElementById('pip-lec-echo').textContent = totalEchoShielded;
+        }
       }
       break;
   }
+}
+
+function syncPipSession(session, forceClear = false) {
+  if (!session || !session.sessionId) return;
+
+  let storedSessionId = null;
+  try {
+    storedSessionId = localStorage.getItem('curator_active_session_id');
+    localStorage.setItem('curator_active_session_id', session.sessionId);
+  } catch (error) {
+    // Continue in memory if storage is unavailable.
+  }
+
+  if (forceClear || (storedSessionId && storedSessionId !== session.sessionId)) {
+    activeFaqs = [];
+    myQuestions = [];
+    lecturerClusters = [];
+    totalLecMsgs = 0;
+    totalEchoShielded = 0;
+    handledEchoQuestionIds.clear();
+    expandedClusterIds.clear();
+    if (window.engine && typeof window.engine.clearAll === 'function') window.engine.clearAll();
+    localStorage.setItem('curator_my_questions', '[]');
+    renderStudentFaqs();
+    renderStudentHistory();
+    renderLecturerClusters();
+  }
+
+  activeSessionId = session.sessionId;
+  isSessionOpen = Boolean(session.isOpen);
+  updatePipStudentAccess();
+}
+
+function updatePipStudentAccess() {
+  if (currentRole !== 'student') return;
+  const input = document.getElementById('pip-student-input');
+  const submit = document.getElementById('btn-pip-send');
+  const banner = document.getElementById('pip-session-closed');
+  const canAsk = isSessionOpen;
+  if (input) input.disabled = !canAsk;
+  if (submit) submit.disabled = !canAsk;
+  if (banner) banner.classList.toggle('hidden', canAsk);
 }
 
 // =========================================================================
@@ -179,24 +260,54 @@ function handleTypingDeflection(text) {
 }
 
 function findFaqMatch(text) {
-  const lower = text.toLowerCase();
+  const lower = normalizeFaqText(text);
+  const questionTokens = new Set(lower.split(' ').filter(Boolean));
+  let bestFaq = null;
+  let bestScore = 0;
+
   for (const faq of activeFaqs) {
-    if (faq.keywords && Array.isArray(faq.keywords)) {
-      let hits = 0;
-      let hasDistinctive = false;
-      for (const kw of faq.keywords) {
-        const kwLower = kw.toLowerCase().trim();
-        if (kwLower && lower.includes(kwLower)) {
-          hits++;
-          if (!genericStopwords.includes(kwLower) && kwLower.length >= 4) {
-            hasDistinctive = true;
-          }
+    const title = faq.canonicalQuestion || faq.originalClusterTitle || faq.title || '';
+    const titleTokens = new Set(normalizeFaqText(title).split(' ').filter(Boolean));
+    let score = 0;
+    let exactHits = 0;
+    let distinctiveHit = false;
+    for (const term of [...(faq.keywords || []), title]) {
+      const normalizedTerm = normalizeFaqText(term);
+      if (!normalizedTerm || normalizedTerm.length < 2) continue;
+      if (lower.includes(normalizedTerm)) {
+        exactHits++;
+        score += normalizedTerm.includes(' ') ? 1.5 : 1;
+        if (!genericStopwords.includes(String(term).toLowerCase().trim()) && normalizedTerm.length >= 4) {
+          distinctiveHit = true;
         }
       }
-      if (hits >= 2 && hasDistinctive) return faq;
+    }
+
+    let titleOverlap = 0;
+    for (const token of questionTokens) {
+      if (token.length >= 2 && titleTokens.has(token)) titleOverlap++;
+    }
+    score += Math.min(titleOverlap, 3) * 0.5;
+    if (exactHits >= 2 && distinctiveHit) score += 1;
+    else if (!(exactHits >= 1 && titleOverlap >= 2 && distinctiveHit)) score = 0;
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestFaq = faq;
     }
   }
-  return null;
+  return bestScore >= 2.5 ? bestFaq : null;
+}
+
+function normalizeFaqText(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function handleStudentSubmit(e) {
@@ -204,13 +315,13 @@ function handleStudentSubmit(e) {
   const input = document.getElementById('pip-student-input');
   const content = input.value.trim();
   if (!content) return;
+  if (!isSessionOpen) {
+    showNotificationToast('🔒 Lớp chưa mở. Vui lòng chờ Giảng viên bắt đầu.');
+    return;
+  }
 
   // 1. Check local instant deflection match
   const localMatch = findFaqMatch(content);
-  if (localMatch) {
-    openPipEchoModal(localMatch.answer, localMatch.resolvedAt, localMatch.canonicalQuestion);
-  }
-
   // 2. Send to WebSocket backend
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({
@@ -231,6 +342,10 @@ function handleStudentSubmit(e) {
   input.value = '';
   document.getElementById('pip-deflection-box').classList.add('hidden');
   renderStudentHistory();
+
+  if (localMatch) {
+    openPipEchoModal(localMatch.answer, localMatch.resolvedAt, localMatch.canonicalQuestion, content);
+  }
 }
 
 function renderStudentHistory() {
@@ -247,7 +362,7 @@ function renderStudentHistory() {
     <div style="background: #131b2e; border: 1px solid #1e293b; border-radius: 8px; padding: 10px; margin-bottom: 8px;">
       <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #94a3b8; margin-bottom: 4px;">
         <span>${q.time}</span>
-        ${q.deflected ? '<span style="color: #34d399; font-weight: 700;">⚡ Đã nhận đáp án tức thì</span>' : '<span style="color: #38bdf8;">Đã gửi tới Thầy</span>'}
+        ${q.deflected ? '<span style="color: #34d399; font-weight: 700;">✓ Đã trả lời — xem Đáp án từ Thầy</span>' : '<span style="color: #38bdf8;">Đã gửi tới Thầy</span>'}
       </div>
       <div style="font-size: 0.82rem; color: #f8fafc;">${escapeHTML(q.text)}</div>
     </div>
@@ -275,10 +390,18 @@ function renderStudentFaqs() {
   `).join('');
 }
 
-function openPipEchoModal(answer, time, title) {
+function openPipEchoModal(answer, time, title, studentMsg = '') {
+  const normalizedQuestion = normalizeFaqText(studentMsg);
+  if (normalizedQuestion) {
+    const matchedQuestion = myQuestions.find(q => normalizeFaqText(q.text) === normalizedQuestion);
+    if (matchedQuestion) matchedQuestion.deflected = true;
+    renderStudentHistory();
+  }
+
   document.getElementById('pip-echo-answer').textContent = answer;
   document.getElementById('pip-echo-time').textContent = `GIẢNG VIÊN ĐÃ GIẢI THÍCH (${time || 'Trực tiếp'}):`;
   document.getElementById('modal-pip-echo').classList.remove('hidden');
+  showNotificationToast('✓ Câu hỏi của bạn đã được giảng viên trả lời. Xem lại trong “Đáp án từ Thầy”.');
 }
 
 function closePipEchoModal() {
@@ -289,7 +412,27 @@ function closePipEchoModal() {
 // LECTURER LOGIC (HOST COCKPIT IN PIP)
 // =========================================================================
 
-function addQuestionToLecturerClusters(question) {
+function addQuestionToLecturerClusters(question, matchedFaq = null) {
+  if (matchedFaq) {
+    let faqCluster = lecturerClusters.find(c => c.id === `faq_${matchedFaq.id}`);
+    if (!faqCluster) {
+      faqCluster = {
+        id: `faq_${matchedFaq.id}`,
+        title: matchedFaq.canonicalQuestion || 'Câu hỏi đã được giải đáp',
+        count: 0,
+        quotes: [],
+        keywords: matchedFaq.keywords || [],
+        answered: true,
+        modelSource: 'Server FAQ Ground Truth'
+      };
+      lecturerClusters.push(faqCluster);
+    }
+    faqCluster.count++;
+    faqCluster.quotes.push(question);
+    renderLecturerClusters();
+    return;
+  }
+
   const text = question.content.toLowerCase();
 
   // Simple intent matching into clusters
@@ -334,7 +477,10 @@ function renderLecturerClusters() {
     return;
   }
 
-  list.innerHTML = lecturerClusters.map(c => `
+  list.innerHTML = lecturerClusters.map(c => {
+    const quotes = Array.isArray(c.quotes) ? c.quotes : [];
+    const isExpanded = expandedClusterIds.has(c.id);
+    return `
     <div class="pip-cluster-card ${c.count >= 3 ? 'urgent' : ''}">
       <div class="pip-cluster-head">
         <span style="font-size: 0.72rem; color: #38bdf8; font-weight: 700;">🔥 ${c.count} câu hỏi</span>
@@ -354,8 +500,31 @@ function renderLecturerClusters() {
           <span style="font-size: 0.72rem; color: #34d399;">⚡ Đang tự động trả lời cho học viên hỏi lại</span>
         `}
       </div>
+      ${quotes.length ? `
+        <button class="pip-quotes-toggle" type="button" onclick="togglePipClusterQuotes('${c.id}')" aria-expanded="${isExpanded}">
+          ${isExpanded ? 'Thu gọn' : 'Xem'} ${quotes.length} câu hỏi gốc ${isExpanded ? '▴' : '▾'}
+        </button>
+        <div class="pip-quotes-list ${isExpanded ? '' : 'hidden'}">
+          ${quotes.map((quote, index) => `
+            <div class="pip-quote-row">
+              <div class="pip-quote-meta">
+                <span>${index + 1}. ${escapeHTML(quote.user || quote.author || 'Học viên')}</span>
+                <span>${escapeHTML(quote.timestamp || '')}</span>
+              </div>
+              <div class="pip-quote-content">${escapeHTML(quote.content || quote.text || '')}</div>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
     </div>
-  `).join('');
+  `;
+  }).join('');
+}
+
+function togglePipClusterQuotes(clusterId) {
+  if (expandedClusterIds.has(clusterId)) expandedClusterIds.delete(clusterId);
+  else expandedClusterIds.add(clusterId);
+  renderLecturerClusters();
 }
 
 function openPipExplainModal(clusterId) {
