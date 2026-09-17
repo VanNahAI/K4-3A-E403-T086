@@ -36,7 +36,7 @@ function loadEnv() {
 loadEnv();
 
 const apiKey = process.argv[2] || process.env.OPENROUTER_API_KEY;
-const model = process.argv[3] || process.env.OPENROUTER_MODEL || 'google/gemini-2.0-flash-exp:free';
+const model = process.argv[3] || process.env.OPENROUTER_MODEL || 'nex-agi/nex-n2.5-mini:free';
 
 console.log("================================================================================");
 console.log("🤖 WORKSHOP QUESTION CURATOR — LIVE OPENROUTER MODEL TESTER");
@@ -115,6 +115,7 @@ Các nhóm câu hỏi hiện có trong lớp:
 Yêu cầu:
 1. Nếu câu hỏi có cùng bản chất ngữ nghĩa với 1 nhóm có sẵn, trả về "matchedClusterId".
 2. Nếu là chủ đề mới, hãy tạo "suggestedTitle" (dưới 10 từ, chuẩn hóa tiếng Việt, nêu rõ bản chất vấn đề) và trích xuất 3-5 "keywords".
+3. Toàn bộ "suggestedTitle" và các từ khóa "keywords" BẮT BUỘC 100% viết bằng Tiếng Việt chuẩn (tuyệt đối không dùng tiếng Trung).
 
 Chỉ trả về định dạng JSON thuần túy (không kèm giải thích hay markdown backticks):
 {

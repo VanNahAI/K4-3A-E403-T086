@@ -8,16 +8,56 @@ let currentRole = 'student';
 let currentName = 'Học viên';
 let currentId = 'S0129';
 
-let activeFaqs = [];
+const DEFAULT_WORKSHOP_FAQS = [
+  {
+    id: "FAQ_CUDA_OOM",
+    canonicalQuestion: "Cách sửa lỗi tràn bộ nhớ CUDA Out of Memory trên GPU / Colab",
+    keywords: ["cuda", "oom", "out of memory", "tràn ram", "tràn vram", "hết ram", "gpu colab", "pytorch", "bộ nhớ", "batch size", "empty_cache"],
+    answer: "1. Vào Runtime -> Change runtime type, kiểm tra GPU T4 đã bật chưa.\n2. Giảm batch_size (ví dụ từ 32 xuống 16 hoặc 8).\n3. Thêm câu lệnh torch.cuda.empty_cache() trước mỗi epoch hoặc sau bước backward.\n4. Dùng with torch.no_grad(): trong vòng lặp validation để không lưu gradient thừa.",
+    resolvedAt: "Đầu buổi workshop",
+    servedStudentsCount: 12
+  },
+  {
+    id: "FAQ_DOCKER_PORT",
+    canonicalQuestion: "Lỗi xung đột cổng mạng Docker (Port 8080 / 3000 already in use)",
+    keywords: ["docker", "port", "cổng", "conflict", "8080", "3000", "already in use", "allocated", "xung đột cổng", "đang chạy", "chiếm cổng"],
+    answer: "1. Kiểm tra tiến trình chiếm cổng: Chạy lệnh netstat -ano | findstr :8080 (hoặc :3000).\n2. Tắt tiến trình cũ: taskkill /F /PID <PID> (Windows) hoặc kill -9 <PID> (Linux/Mac).\n3. Hoặc đổi cổng map của container: docker run -p 8081:8080 ... thay vì cổng 8080 mặc định.",
+    resolvedAt: "Đầu buổi workshop",
+    servedStudentsCount: 8
+  },
+  {
+    id: "FAQ_CVAT_STEP3",
+    canonicalQuestion: "Lỗi cài đặt CVAT & OPA bước 3 (Healthcheck 500 / Policy Bundle)",
+    keywords: ["cvat", "opa", "bước 3", "step 3", "healthcheck", "500", "policy bundle", "migration", "gán nhãn", "annotation"],
+    answer: "1. Chạy lệnh: docker compose down -v để dọn dẹp volume cũ bị lỗi migration.\n2. Tải lại file policy bundle mới nhất từ repo môn học.\n3. Khởi động lại: docker compose up -d và chờ 2-3 phút để container OPA hoàn tất khởi tạo healthcheck.",
+    resolvedAt: "Đầu buổi workshop",
+    servedStudentsCount: 15
+  },
+  {
+    id: "FAQ_COLAB_DISCONNECT",
+    canonicalQuestion: "Cách chống ngắt kết nối GPU Google Colab khi đang huấn luyện mô hình",
+    keywords: ["ngắt kết nối", "disconnect", "colab treo", "timeout", "idle", "mất kết nối", "rớt mạng colab", "colab bị dừng"],
+    answer: "1. Bấm F12 mở Console trình duyệt tại tab Colab, dán đoạn script giữ kết nối tự động:\nfunction ClickConnect(){ console.log('Keep-alive'); document.querySelector('#top-toolbar > colab-connect-button').click(); } setInterval(ClickConnect, 60000);\n2. Hoặc lưu checkpoint thường xuyên sau mỗi epoch vào Google Drive qua drive.mount('/content/drive').",
+    resolvedAt: "Đầu buổi workshop",
+    servedStudentsCount: 6
+  },
+  {
+    id: "FAQ_ZOOM_ATTENDANCE",
+    canonicalQuestion: "Cú pháp đặt tên tài khoản Zoom & Điểm danh Workshop",
+    keywords: ["tên zoom", "đặt tên zoom", "cú pháp", "điểm danh", "myvinuni", "quét qr", "zoom", "họ tên mã", "đổi tên"],
+    answer: "Cú pháp đổi tên chuẩn: [Mã HV] - [Họ và Tên] (Ví dụ: K4-3A-1234 - Nguyễn Văn A). Giảng viên sẽ tự động điểm danh qua log Zoom chat và mã QR cuối buổi học.",
+    resolvedAt: "Đầu buổi workshop",
+    servedStudentsCount: 19
+  }
+];
+
+let activeFaqs = [...DEFAULT_WORKSHOP_FAQS];
 let myQuestions = [];
 let lecturerClusters = [];
 let totalLecMsgs = 0;
 let totalEchoShielded = 0;
 let recognition = null;
 let activeExplainingCluster = null;
-
-// Stopwords for local deflection matching
-const genericStopwords = ["lỗi", "em", "thầy", "cho", "hỏi", "bị", "là", "sao", "thế", "nào", "ạ", "với", "trong", "bài", "ở"];
 
 window.addEventListener('DOMContentLoaded', () => {
   // 1. Read URL parameters
@@ -164,39 +204,84 @@ function handleTypingDeflection(text) {
   const box = document.getElementById('pip-deflection-box');
   const ansEl = document.getElementById('pip-deflection-answer');
 
-  if (!text || text.trim().length < 5 || activeFaqs.length === 0) {
-    box.classList.add('hidden');
+  if (!text || text.trim().length < 2 || activeFaqs.length === 0) {
+    if (box) box.classList.add('hidden');
     return;
   }
 
   const matched = findFaqMatch(text);
   if (matched) {
-    ansEl.textContent = matched.answer;
-    box.classList.remove('hidden');
+    if (ansEl) {
+      ansEl.innerHTML = `<div style="color: #38bdf8; font-weight: 700; margin-bottom: 4px;">📌 Khớp chủ đề: ${escapeHTML(matched.canonicalQuestion || matched.title)}</div><div style="white-space: pre-line; color: #f1f5f9;">${escapeHTML(matched.answer)}</div>`;
+    }
+    if (box) box.classList.remove('hidden');
   } else {
-    box.classList.add('hidden');
+    if (box) box.classList.add('hidden');
   }
 }
+window.handleTypingDeflection = handleTypingDeflection;
 
-function findFaqMatch(text) {
-  const lower = text.toLowerCase();
+function findFaqMatch(rawText) {
+  if (!rawText || activeFaqs.length === 0) return null;
+  const clean = rawText.toLowerCase().trim();
+  if (clean.length < 2) return null;
+
+  const stopwords = new Set([
+    "thầy", "thay", "ơi", "oi", "cho", "em", "hỏi", "hoi", "với", "voi", "ạ", "a",
+    "là", "la", "gì", "gi", "thế", "the", "nào", "nao", "sao", "bị", "bi", "trong",
+    "khi", "lúc", "luc", "làm", "lam", "cách", "cach", "hướng", "dẫn", "bài", "bai",
+    "tập", "tap", "ở", "o", "của", "cua", "và", "va", "được", "duoc", "không", "khong"
+  ]);
+
+  const tokens = clean.split(/[\s,.\?!;:()\[\]{}"'\\\/]+/).filter(w => w.length >= 2 && !stopwords.has(w));
+
+  let bestFaq = null;
+  let maxScore = 0;
+
   for (const faq of activeFaqs) {
-    if (faq.keywords && Array.isArray(faq.keywords)) {
-      let hits = 0;
-      let hasDistinctive = false;
-      for (const kw of faq.keywords) {
-        const kwLower = kw.toLowerCase().trim();
-        if (kwLower && lower.includes(kwLower)) {
-          hits++;
-          if (!genericStopwords.includes(kwLower) && kwLower.length >= 4) {
-            hasDistinctive = true;
-          }
+    let score = 0;
+    const title = (faq.canonicalQuestion || faq.title || '').toLowerCase();
+    const answer = (faq.answer || '').toLowerCase();
+    const keywords = (faq.keywords || []).map(k => k.toLowerCase().trim());
+
+    if (title.includes(clean)) {
+      score += 15;
+    } else if (clean.includes(title)) {
+      score += 12;
+    }
+
+    const domainSignatures = [
+      { pattern: /(cuda|oom|out of memory|tràn ram|tran ram|hết ram|het ram|vram|gpu colab)/i, id: "FAQ_CUDA_OOM" },
+      { pattern: /(docker|port|cổng|cong|8080|3000|already in use|allocated|xung đột|xung dot)/i, id: "FAQ_DOCKER_PORT" },
+      { pattern: /(cvat|opa|bước 3|buoc 3|step 3|healthcheck|500|gán nhãn|gan nhan|annotation)/i, id: "FAQ_CVAT_STEP3" },
+      { pattern: /(disconnect|ngắt kết nối|ngat ket noi|rớt mạng|rot mang|colab treo|timeout)/i, id: "FAQ_COLAB_DISCONNECT" },
+      { pattern: /(tên zoom|ten zoom|đổi tên|doi ten|cú pháp|cu phap|điểm danh|diem danh|myvinuni)/i, id: "FAQ_ZOOM_ATTENDANCE" }
+    ];
+
+    for (const sig of domainSignatures) {
+      if (sig.pattern.test(clean)) {
+        if (faq.id === sig.id || keywords.some(k => sig.pattern.test(k)) || sig.pattern.test(title)) {
+          score += 10;
         }
       }
-      if (hits >= 2 && hasDistinctive) return faq;
+    }
+
+    for (const token of tokens) {
+      if (title.includes(token)) score += 3.5;
+      for (const kw of keywords) {
+        if (kw === token) score += 4.0;
+        else if (kw.includes(token) || token.includes(kw)) score += 2.0;
+      }
+      if (answer.includes(token) && token.length >= 4) score += 1.0;
+    }
+
+    if (score > maxScore) {
+      maxScore = score;
+      bestFaq = faq;
     }
   }
-  return null;
+
+  return maxScore >= 4.0 ? bestFaq : null;
 }
 
 function handleStudentSubmit(e) {

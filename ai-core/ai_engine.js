@@ -58,7 +58,16 @@ class UnifiedAIEngine {
     // OpenRouter / Model Config
     this.provider = (typeof localStorage !== 'undefined' && localStorage.getItem('curator_provider')) || 'openrouter'; // 'openrouter', 'ollama', 'mock'
     this.openRouterKey = (typeof localStorage !== 'undefined' && localStorage.getItem('curator_openrouter_key')) || (typeof process !== 'undefined' && process.env.OPENROUTER_API_KEY) || '';
-    this.openRouterModel = (typeof localStorage !== 'undefined' && localStorage.getItem('curator_openrouter_model')) || (typeof process !== 'undefined' && process.env.OPENROUTER_MODEL) || 'google/gemini-2.0-flash-exp:free';
+    
+    let storedModel = (typeof localStorage !== 'undefined' && localStorage.getItem('curator_openrouter_model')) || '';
+    if (!storedModel || storedModel.includes('gemini-2.0-flash')) {
+      storedModel = 'nex-agi/nex-n2.5-mini:free';
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('curator_openrouter_model', storedModel);
+      }
+    }
+    this.openRouterModel = (typeof process !== 'undefined' && process.env.OPENROUTER_MODEL) || storedModel;
+
     this.ollamaUrl = 'http://localhost:11434/v1';
     this.ollamaModel = 'qwen2.5:3b-instruct';
     this.isLiveLLM = false;
@@ -100,7 +109,12 @@ class UnifiedAIEngine {
           const config = await res.json();
           if (config.hasKey) {
             this.serverHasKey = true;
-            if (config.model) this.openRouterModel = config.model;
+            if (config.model && !config.model.includes('gemini-2.0-flash')) {
+              this.openRouterModel = config.model;
+              if (typeof localStorage !== 'undefined') {
+                localStorage.setItem('curator_openrouter_model', config.model);
+              }
+            }
           }
           if (config.maskedKey && !this.openRouterKey) {
             this.serverMaskedKey = config.maskedKey;
@@ -271,6 +285,7 @@ ${clustersSummary || "(Chưa có nhóm nào)"}
 Yêu cầu:
 1. Nếu câu hỏi có cùng bản chất ngữ nghĩa với 1 nhóm có sẵn, trả về "matchedClusterId".
 2. Nếu là chủ đề mới, hãy tạo "suggestedTitle" (dưới 10 từ, chuẩn hóa tiếng Việt, nêu rõ bản chất vấn đề) và trích xuất 3-5 "keywords".
+3. Toàn bộ "suggestedTitle" và các từ khóa "keywords" BẮT BUỘC 100% viết bằng Tiếng Việt chuẩn (tuyệt đối không dùng tiếng Trung hay tiếng khác).
 
 Chỉ trả về định dạng JSON thuần túy (không kèm giải thích hay markdown backticks):
 {

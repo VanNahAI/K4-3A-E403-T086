@@ -249,12 +249,23 @@
         <!-- Pre-submit Deflection Banner (Instant Answer suggestion) -->
         <div id="box-deflection" class="deflection-box hidden">
           <div class="deflection-title">
-            <span>⚡ THẦY ĐÃ GIẢI ĐÁP CHỦ ĐỀ NÀY RỒI:</span>
+            <span style="display: inline-flex; align-items: center; gap: 6px;">
+              <span class="pulsing" style="width: 8px; height: 8px; border-radius: 50%; background: #10b981; display: inline-block;"></span>
+              ⚡ ĐÁP ÁN TỨC THÌ TỪ THẦY (GỢI Ý KHI ĐANG GÕ):
+            </span>
           </div>
-          <div class="deflection-answer" id="deflection-answer-text">...</div>
-          <small style="color: #34d399; font-size: 0.72rem; margin-top: 4px; display: block;">
-            ✓ Bạn đã có câu trả lời ngay, không cần chờ thầy giảng lại!
-          </small>
+          <div id="deflection-faq-title" style="font-size: 0.88rem; font-weight: 700; color: #38bdf8; margin: 4px 0 6px 0;">
+            ...
+          </div>
+          <div class="deflection-answer" id="deflection-answer-text" style="white-space: pre-line; background: rgba(0, 0, 0, 0.25); padding: 10px 12px; border-radius: 8px; border-left: 3px solid #10b981; margin-bottom: 10px;">...</div>
+          <div style="display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+            <button type="button" class="btn btn-sm" id="btn-deflection-accept" onclick="acceptDeflectionAnswer()" style="background: #10b981; color: white; font-weight: 700; font-size: 0.78rem; border: none; border-radius: 6px; padding: 7px 12px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+              ✓ Em đã hiểu (Không cần gửi nữa)
+            </button>
+            <span style="color: #94a3b8; font-size: 0.72rem;">
+              Hoặc tiếp tục gõ để gửi câu hỏi riêng cho Thầy ↓
+            </span>
+          </div>
         </div>
 
         <form id="form-student-ask">

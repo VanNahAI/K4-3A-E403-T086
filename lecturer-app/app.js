@@ -1006,7 +1006,7 @@ async function testLiveLLMConnection() {
 function updateModelBadgeDisplay() {
   const badge = document.getElementById('header-model-badge');
   if (window.engine.provider === 'openrouter') {
-    const modelShort = (window.engine.openRouterModel || '').split('/')[1] || window.engine.openRouterModel || 'gemini-2.0-flash';
+    const modelShort = (window.engine.openRouterModel || '').split('/')[1] || window.engine.openRouterModel || 'nex-n2.5-mini';
     if (window.engine.openRouterKey || window.engine.serverHasKey) {
       badge.textContent = `🟢 Live LLM: ${modelShort}`;
       badge.style.background = 'rgba(16, 185, 129, 0.15)';
