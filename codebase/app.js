@@ -544,8 +544,8 @@ function renderStreamFeed() {
     html += `
       <div class="stream-item ${extraClass}">
         <div class="stream-item-top">
-          <span class="stream-user">${msg.user} ${badge}</span>
-          <span>${msg.id} · ${msg.timestamp}</span>
+          <span class="stream-user">${escapeHTML(msg.user)} ${badge}</span>
+          <span>${escapeHTML(msg.id)} · ${escapeHTML(msg.timestamp)}</span>
         </div>
         <div class="stream-item-body">${escapeHTML(msg.content)}</div>
       </div>
@@ -596,14 +596,14 @@ function renderActiveClusters(container) {
           <div class="card-stats">
             <span class="count-pill"><b>${cluster.count}</b> lượt hỏi</span>
             <span class="confidence-pill">AI: ${confPct}% tin cậy</span>
-            <span style="font-size: 0.72rem; color: var(--text-muted);">${cluster.lastUpdated}</span>
+            <span style="font-size: 0.72rem; color: var(--text-muted);">${escapeHTML(cluster.lastUpdated)}</span>
           </div>
         </div>
 
         <div class="card-title">${escapeHTML(cluster.title)}</div>
         <div class="card-ai-meta" style="font-size: 0.72rem; color: #a5b4fc; display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-          <span>🤖 ${cluster.modelSource || 'AI Engine'}</span>
-          <span>⚡ ${cluster.latencyMs || '~0.3s'}</span>
+          <span>🤖 ${escapeHTML(cluster.modelSource || 'AI Engine')}</span>
+          <span>⚡ ${escapeHTML(cluster.latencyMs || '~0.3s')}</span>
         </div>
 
         <!-- Action Row -->
@@ -625,7 +625,7 @@ function renderActiveClusters(container) {
         <div class="quotes-accordion" id="quotes-${cluster.id}">
           ${cluster.quotes.map(q => `
             <div class="quote-row">
-              <span class="quote-meta">[${q.id} · ${q.user}]:</span>
+              <span class="quote-meta">[${escapeHTML(q.id)} · ${escapeHTML(q.user)}]:</span>
               <span>"${escapeHTML(q.content)}"</span>
             </div>
           `).join('')}
@@ -660,14 +660,14 @@ function renderEchoList(container) {
       <div class="question-card" style="border-left: 3px solid #a855f7;">
         <div class="card-top-row">
           <span class="echo-badge-card">⚡ Đã gửi đáp án chuẩn cho học viên</span>
-          <span style="font-size: 0.72rem; color: var(--text-muted);">${item.timestamp} · Học viên: <b>${item.studentMsg.user}</b></span>
+          <span style="font-size: 0.72rem; color: var(--text-muted);">${escapeHTML(item.timestamp)} · Học viên: <b>${escapeHTML(item.studentMsg.user)}</b></span>
         </div>
         <div style="font-size: 0.85rem; font-style: italic; color: #e2e8f0; margin-bottom: 8px;">
           "${escapeHTML(item.studentMsg.content)}"
         </div>
         <div style="background: rgba(0, 0, 0, 0.3); border-radius: var(--radius-sm); padding: 10px; border-left: 2px solid var(--success);">
           <div style="font-size: 0.72rem; color: var(--success); font-weight: 600; text-transform: uppercase; margin-bottom: 2px;">
-            Đáp án gửi cho học viên (Dựa trên lời giải thích của Giảng viên lúc ${item.matchedFaq.resolvedAt}):
+            Đáp án gửi cho học viên (Dựa trên lời giải thích của Giảng viên lúc ${escapeHTML(item.matchedFaq.resolvedAt)}):
           </div>
           <div style="font-size: 0.82rem; color: #f8fafc;">
             ${escapeHTML(item.answerDelivered)}
@@ -698,16 +698,16 @@ function renderReviewQueue(container) {
       <div class="question-card" style="border-left: 3px solid var(--warning);">
         <div class="card-top-row">
           <span class="badge" style="background: rgba(245, 158, 11, 0.2); color: var(--warning);">Cần duyệt (Confidence 65%)</span>
-          <span style="font-size: 0.72rem; color: var(--text-muted);">${item.timestamp}</span>
+          <span style="font-size: 0.72rem; color: var(--text-muted);">${escapeHTML(item.timestamp)}</span>
         </div>
         <div class="card-title">${escapeHTML(item.content)}</div>
-        <p style="font-size: 0.76rem; color: var(--text-muted);">Lý do: ${item.reason}</p>
+        <p style="font-size: 0.76rem; color: var(--text-muted);">Lý do: ${escapeHTML(item.reason)}</p>
         <div class="card-actions-row">
           <div class="card-btn-group">
             <button class="btn-card btn-resolve" onclick="acceptReview(${idx})">➕ Đưa lên bảng chính</button>
             <button class="btn-card btn-split" onclick="dismissReview(${idx})">Bỏ qua</button>
           </div>
-          <span class="quote-meta">[${item.id} - ${item.user}]</span>
+          <span class="quote-meta">[${escapeHTML(item.id)} - ${escapeHTML(item.user)}]</span>
         </div>
       </div>
     `;
@@ -735,7 +735,7 @@ function renderAnsweredList(container) {
       <div class="question-card answered">
         <div class="card-top-row">
           <span class="badge" style="background: rgba(16, 185, 129, 0.2); color: var(--success);">
-            ✓ Đã giải thích (${item.answeredAt})
+            ✓ Đã giải thích (${escapeHTML(item.answeredAt)})
           </span>
           <span class="count-pill">Đã phục vụ ${item.count} học viên</span>
         </div>
@@ -749,7 +749,7 @@ function renderAnsweredList(container) {
         ` : ''}
 
         <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 6px;">
-          Bao gồm các tin: ${item.quotes.map(q => q.id).join(', ')}
+          Bao gồm các tin: ${item.quotes.map(q => escapeHTML(q.id)).join(', ')}
         </div>
       </div>
     `;
@@ -775,11 +775,11 @@ function renderFilteredList(container) {
     html += `
       <div class="question-card" style="border-left: 3px solid var(--danger);">
         <div class="card-top-row">
-          <span class="badge" style="background: rgba(239, 68, 68, 0.2); color: var(--danger);">${item.category}</span>
-          <span style="font-size: 0.72rem; color: var(--text-muted);">${item.timestamp}</span>
+          <span class="badge" style="background: rgba(239, 68, 68, 0.2); color: var(--danger);">${escapeHTML(item.category)}</span>
+          <span style="font-size: 0.72rem; color: var(--text-muted);">${escapeHTML(item.timestamp)}</span>
         </div>
         <div class="card-title" style="color: #fca5a5;">"${escapeHTML(item.content)}"</div>
-        <div style="font-size: 0.75rem; color: var(--text-muted);">Lý do chặn: <b>${item.reason}</b> · Người gửi: ${item.user}</div>
+        <div style="font-size: 0.75rem; color: var(--text-muted);">Lý do chặn: <b>${escapeHTML(item.reason)}</b> · Người gửi: ${escapeHTML(item.user)}</div>
       </div>
     `;
   });
@@ -806,7 +806,7 @@ function openExplainModal(clusterId) {
   document.getElementById('explain-modal-cluster-title').textContent = cluster.title;
   const quotesBox = document.getElementById('explain-sample-quotes');
   quotesBox.innerHTML = cluster.quotes.slice(0, 3).map(q => `
-    <div>• <i>"${escapeHTML(q.content)}"</i> <span style="color: var(--text-muted);">(${q.user})</span></div>
+    <div>• <i>"${escapeHTML(q.content)}"</i> <span style="color: var(--text-muted);">(${escapeHTML(q.user)})</span></div>
   `).join('');
 
   const input = document.getElementById('explain-text-input');
@@ -920,9 +920,9 @@ function openSplitModal(clusterId) {
   const listEl = document.getElementById('split-items-list');
   listEl.innerHTML = cluster.quotes.map(q => `
     <label class="split-check-item">
-      <input type="checkbox" name="split_quote" value="${q.id}">
+      <input type="checkbox" name="split_quote" value="${escapeHTML(q.id)}">
       <div>
-        <span class="quote-meta">[${q.id} - ${q.user}]:</span>
+        <span class="quote-meta">[${escapeHTML(q.id)} - ${escapeHTML(q.user)}]:</span>
         <div>"${escapeHTML(q.content)}"</div>
       </div>
     </label>
@@ -1096,7 +1096,8 @@ function dismissReview(index) {
 }
 
 function escapeHTML(str) {
-  return str.replace(/[&<>'"]/g, 
+  if (str === null || str === undefined) return '';
+  return String(str).replace(/[&<>'"]/g,
     tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
   );
 }
@@ -1183,7 +1184,7 @@ function renderSessionSummary() {
         <div class="sum-faq-q">❓ ${escapeHTML(faq.canonicalQuestion || faq.title)}</div>
         <div class="sum-faq-a"><b>Đáp án Thầy:</b> ${escapeHTML(faq.answer || faq.verifiedAnswer)}</div>
         <div class="sum-faq-meta">
-          <span>⏰ Đúc kết lúc: ${faq.resolvedAt || 'buổi học'}</span>
+          <span>⏰ Đúc kết lúc: ${escapeHTML(faq.resolvedAt || 'buổi học')}</span>
           <span>👥 Đã phục vụ: <b>${faq.servedStudentsCount || 1}</b> lượt học viên</span>
         </div>
       </div>

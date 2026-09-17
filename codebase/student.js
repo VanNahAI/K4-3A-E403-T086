@@ -300,8 +300,8 @@ function renderMyQuestions() {
   list.innerHTML = myQuestions.map(q => `
     <div style="background: #131b2e; border: 1px solid #1e293b; border-radius: 10px; padding: 12px; margin-bottom: 10px;">
       <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: #64748b; margin-bottom: 4px;">
-        <span>${q.timestamp}</span>
-        <span class="badge" style="background: rgba(99, 102, 241, 0.2); color: #a5b4fc;">${q.status}</span>
+        <span>${escapeHTML(q.timestamp)}</span>
+        <span class="badge" style="background: rgba(99, 102, 241, 0.2); color: #a5b4fc;">${escapeHTML(q.status)}</span>
       </div>
       <div style="font-size: 0.88rem; color: #f1f5f9;">${escapeHTML(q.content)}</div>
     </div>
@@ -330,7 +330,7 @@ function renderFaqFeed() {
         ${escapeHTML(faq.answer || faq.verifiedAnswer)}
       </div>
       <div class="faq-meta">
-        <span>⏰ Giải đáp lúc ${faq.resolvedAt || 'buổi học'}</span>
+        <span>⏰ Giải đáp lúc ${escapeHTML(faq.resolvedAt || 'buổi học')}</span>
         <span>👥 Đã phục vụ ${faq.servedStudentsCount || 1} lượt</span>
       </div>
     </div>
@@ -382,8 +382,8 @@ function promptChangeName() {
 }
 
 function escapeHTML(str) {
-  if (!str) return '';
-  return str.replace(/[&<>'"]/g, 
+  if (str === null || str === undefined) return '';
+  return String(str).replace(/[&<>'"]/g,
     tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
   );
 }
