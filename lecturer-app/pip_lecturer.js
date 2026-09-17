@@ -17,6 +17,15 @@ let recognition = null;
 let activeExplainingCluster = null;
 let connectionSuspended = false;
 let reconnectTimer = null;
+let aiPipelineState = 'inactive';
+let aiPipelineError = '';
+let aiPendingQuestions = [];
+let aiProcessedQuestionIds = new Set();
+let aiReceivedQuestionIds = new Set();
+let aiPipelineRestored = false;
+let aiPipelineSuspended = false;
+let aiDrainPromise = null;
+let aiHealthPromise = null;
 
 // Stopwords for local deflection matching
 const genericStopwords = ["lỗi", "em", "thầy", "cho", "hỏi", "bị", "là", "sao", "thế", "nào", "ạ", "với", "trong", "bài", "ở"];
@@ -44,9 +53,21 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // 4. Initialize AI Engine & WebSocket Connection
   if (typeof UnifiedAIEngine !== 'undefined') {
-    window.engine = new UnifiedAIEngine();
+    window.engine = new UnifiedAIEngine(currentRole === 'lecturer' ? {
+      provider: 'backend-qwen',
+      strictLlm: true,
+      backendClassifierUrl: '/api/ai/classify'
+    } : {});
   }
   connectWebSocket();
+
+  if (currentRole === 'lecturer') {
+    if (!window.engine) {
+      setAiPipelineState('paused', 'Không tải được AI Engine trong PiP.');
+    } else {
+      setTimeout(initializeAiPipeline, 0);
+    }
+  }
 });
 
 function connectWebSocket() {
@@ -123,15 +144,12 @@ async function handleServerMessage(msg) {
     case 'new_student_question':
       // Lecturer view: incoming student question
       if (currentRole === 'lecturer' && msg.question) {
-        totalLecMsgs++;
-        document.getElementById('pip-lec-msgs').textContent = totalLecMsgs;
-        if (window.engine) {
-          await window.engine.processMessage(msg.question.content, msg.question.user);
-          lecturerClusters = window.engine.clusters;
-          renderLecturerClusters();
-        } else {
-          addQuestionToLecturerClusters(msg.question);
+        if (!aiReceivedQuestionIds.has(msg.question.id)) {
+          aiReceivedQuestionIds.add(msg.question.id);
+          totalLecMsgs++;
+          document.getElementById('pip-lec-msgs').textContent = totalLecMsgs;
         }
+        enqueueQuestionForAi(msg.question);
       }
       break;
 
@@ -296,6 +314,138 @@ function closePipEchoModal() {
 // =========================================================================
 // LECTURER LOGIC (HOST COCKPIT IN PIP)
 // =========================================================================
+
+function updateAiPipelineUi() {
+  const container = document.getElementById('pip-ai-status');
+  const title = document.getElementById('pip-ai-status-title');
+  const detail = document.getElementById('pip-ai-status-detail');
+  const retryButton = document.getElementById('btn-ai-retry');
+  if (!container || !title || !detail || !retryButton) return;
+
+  const queued = aiPendingQuestions.length;
+  const queueText = queued > 0 ? ` · ${queued} câu đang chờ` : '';
+  container.dataset.state = aiPipelineState;
+  retryButton.classList.toggle('hidden', aiPipelineState !== 'paused');
+  retryButton.disabled = aiPipelineState === 'connecting';
+
+  if (aiPipelineState === 'ready') {
+    title.textContent = 'Qwen3 sẵn sàng';
+    detail.textContent = `Phân loại bằng model qwen3:8b${queueText}`;
+  } else if (aiPipelineState === 'processing') {
+    title.textContent = 'Qwen3 đang phân loại...';
+    detail.textContent = `Đang xử lý tuần tự${queueText}`;
+  } else if (aiPipelineState === 'paused') {
+    title.textContent = 'Đã dừng phân loại';
+    detail.textContent = `${aiPipelineError || 'Không thể kết nối Qwen3.'}${queueText}`;
+  } else {
+    title.textContent = 'Đang kết nối Qwen3...';
+    detail.textContent = `Kiểm tra model trên backend${queueText}`;
+  }
+}
+
+function setAiPipelineState(state, errorMessage = '') {
+  aiPipelineState = state;
+  aiPipelineError = errorMessage;
+  updateAiPipelineUi();
+}
+
+async function checkAiHealth() {
+  const response = await fetch('/api/ai/health', { cache: 'no-store' });
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch (error) {}
+
+  if (!response.ok || !payload?.ok || !payload.reachable) {
+    const healthError = new Error(payload?.error?.message || `Qwen3 health check failed (${response.status})`);
+    healthError.code = payload?.error?.code || 'QWEN_HEALTH_FAILED';
+    throw healthError;
+  }
+  return payload;
+}
+
+async function initializeAiPipeline() {
+  if (currentRole !== 'lecturer' || aiPipelineSuspended) return;
+  if (!window.engine) {
+    setAiPipelineState('paused', 'Không tải được AI Engine trong PiP.');
+    return;
+  }
+  if (aiPipelineRestored && aiPipelineState === 'paused') {
+    updateAiPipelineUi();
+    return;
+  }
+  if (aiHealthPromise) return aiHealthPromise;
+
+  setAiPipelineState('connecting');
+  aiHealthPromise = checkAiHealth()
+    .then(async () => {
+      setAiPipelineState('ready');
+      await drainAiQuestionQueue();
+    })
+    .catch((error) => {
+      setAiPipelineState('paused', error.message);
+    })
+    .finally(() => {
+      aiHealthPromise = null;
+    });
+  return aiHealthPromise;
+}
+
+function normalizeQueuedQuestion(question) {
+  return {
+    id: String(question.id || `QUESTION_${Date.now()}`),
+    user: String(question.user || 'Học viên'),
+    content: String(question.content || ''),
+    timestamp: question.timestamp || '',
+    clientId: question.clientId || ''
+  };
+}
+
+function enqueueQuestionForAi(question) {
+  if (!question?.content) return;
+  const normalized = normalizeQueuedQuestion(question);
+  if (aiProcessedQuestionIds.has(normalized.id)) return;
+  if (aiPendingQuestions.some((item) => item.id === normalized.id)) return;
+
+  aiPendingQuestions.push(normalized);
+  updateAiPipelineUi();
+  if (aiPipelineState === 'ready') drainAiQuestionQueue();
+}
+
+async function drainAiQuestionQueue() {
+  if (aiDrainPromise || aiPipelineSuspended || aiPipelineState === 'paused') return aiDrainPromise;
+
+  aiDrainPromise = (async () => {
+    while (aiPendingQuestions.length > 0 && !aiPipelineSuspended && aiPipelineState !== 'paused') {
+      const question = aiPendingQuestions[0];
+      setAiPipelineState('processing');
+
+      try {
+        await window.engine.processMessage(question.content, question.user, { id: question.id });
+        lecturerClusters = window.engine.clusters;
+        aiProcessedQuestionIds.add(question.id);
+        aiPendingQuestions.shift();
+        renderLecturerClusters();
+        setAiPipelineState('ready');
+      } catch (error) {
+        setAiPipelineState('paused', error.message || 'Qwen3 không thể phân loại câu hỏi.');
+        break;
+      }
+    }
+  })().finally(() => {
+    aiDrainPromise = null;
+    updateAiPipelineUi();
+  });
+
+  return aiDrainPromise;
+}
+
+async function retryAiPipeline() {
+  if (aiHealthPromise || aiPipelineSuspended) return;
+  aiPipelineRestored = false;
+  setAiPipelineState('connecting');
+  await initializeAiPipeline();
+}
 
 function addQuestionToLecturerClusters(question) {
   const text = question.content.toLowerCase();
@@ -492,6 +642,11 @@ function exportCompanionState() {
     lecturerClusters,
     totalLecMsgs,
     totalEchoShielded,
+    aiPipelineState,
+    aiPipelineError,
+    aiPendingQuestions,
+    aiProcessedQuestionIds: Array.from(aiProcessedQuestionIds),
+    aiReceivedQuestionIds: Array.from(aiReceivedQuestionIds),
     draftQuestion: document.getElementById('pip-student-input')?.value || '',
     explanationDraft: document.getElementById('pip-explain-text')?.value || ''
   };
@@ -508,6 +663,14 @@ function restoreCompanionState(state) {
   lecturerClusters = Array.isArray(state.lecturerClusters) ? state.lecturerClusters : lecturerClusters;
   totalLecMsgs = Number.isFinite(state.totalLecMsgs) ? state.totalLecMsgs : totalLecMsgs;
   totalEchoShielded = Number.isFinite(state.totalEchoShielded) ? state.totalEchoShielded : totalEchoShielded;
+  aiPipelineState = typeof state.aiPipelineState === 'string' ? state.aiPipelineState : aiPipelineState;
+  aiPipelineError = typeof state.aiPipelineError === 'string' ? state.aiPipelineError : aiPipelineError;
+  aiPendingQuestions = Array.isArray(state.aiPendingQuestions)
+    ? state.aiPendingQuestions.map(normalizeQueuedQuestion)
+    : aiPendingQuestions;
+  aiProcessedQuestionIds = new Set(Array.isArray(state.aiProcessedQuestionIds) ? state.aiProcessedQuestionIds : []);
+  aiReceivedQuestionIds = new Set(Array.isArray(state.aiReceivedQuestionIds) ? state.aiReceivedQuestionIds : []);
+  aiPipelineRestored = true;
 
   const nameEl = document.getElementById('pip-user-name');
   if (nameEl) nameEl.textContent = currentName;
@@ -530,11 +693,14 @@ function restoreCompanionState(state) {
     if (messagesEl) messagesEl.textContent = totalLecMsgs;
     if (echoEl) echoEl.textContent = totalEchoShielded;
     renderLecturerClusters();
+    updateAiPipelineUi();
+    if (aiPipelineState !== 'paused') setTimeout(initializeAiPipeline, 0);
   }
 }
 
 function suspendCompanion() {
   connectionSuspended = true;
+  aiPipelineSuspended = true;
   clearTimeout(reconnectTimer);
   reconnectTimer = null;
 
@@ -550,9 +716,11 @@ function suspendCompanion() {
 
 function resumeCompanion() {
   connectionSuspended = false;
+  aiPipelineSuspended = false;
   if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
     connectWebSocket();
   }
+  if (currentRole === 'lecturer' && aiPipelineState !== 'paused') initializeAiPipeline();
 }
 
 window.curatorCompanionAdapter = {

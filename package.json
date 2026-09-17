@@ -4,9 +4,10 @@
   "description": "**SPEC → Prototype → Demo.** Đây không phải cuộc thi code — đây là cuộc thi **tư duy sản phẩm AI**.",
   "main": "index.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "node --env-file-if-exists=.env server.js",
     "test": "node ai-core/eval/run_eval.js",
-    "test:e2e": "node ai-core/eval/test_realtime_e2e.js"
+    "test:e2e": "node ai-core/eval/test_realtime_e2e.js",
+    "test:ai-proxy": "node ai-core/eval/test_qwen_proxy.js"
   },
   "repository": {
     "type": "git",

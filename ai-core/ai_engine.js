@@ -54,13 +54,16 @@ const KNOWLEDGE_BASE = [
 ];
 
 class UnifiedAIEngine {
-  constructor() {
+  constructor(options = {}) {
     // OpenRouter / Model Config
-    this.provider = localStorage.getItem('curator_provider') || 'openrouter'; // 'openrouter', 'ollama', 'mock'
+    this.provider = options.provider || localStorage.getItem('curator_provider') || 'openrouter'; // 'openrouter', 'ollama', 'mock', 'backend-qwen'
     this.openRouterKey = localStorage.getItem('curator_openrouter_key') || '';
     this.openRouterModel = localStorage.getItem('curator_openrouter_model') || 'meta-llama/llama-3.2-3b-instruct:free';
     this.ollamaUrl = 'http://localhost:11434/v1';
     this.ollamaModel = 'qwen2.5:3b-instruct';
+    this.backendClassifierUrl = options.backendClassifierUrl || '/api/ai/classify';
+    this.strictLlm = options.strictLlm === true;
+    this.lastModelName = '';
 
     // Core Data Stores
     this.messages = [];
@@ -190,9 +193,48 @@ class UnifiedAIEngine {
   /**
    * Semantic Analysis using OpenRouter / LLM
    */
-  async analyzeWithLLM(text, existingClusters) {
+  async analyzeWithLLM(text, existingClusters, metadata = {}) {
     if (this.provider === 'mock' || (this.provider === 'openrouter' && !this.openRouterKey)) {
       return null;
+    }
+
+    if (this.provider === 'backend-qwen') {
+      try {
+        const response = await fetch(this.backendClassifierUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            questionId: metadata.id || `LOCAL_${Date.now()}`,
+            question: text,
+            clusters: existingClusters.map((cluster) => ({
+              id: cluster.id,
+              title: cluster.title,
+              keywords: Array.isArray(cluster.keywords) ? cluster.keywords : []
+            }))
+          })
+        });
+
+        let payload = null;
+        try {
+          payload = await response.json();
+        } catch (error) {}
+
+        if (!response.ok || !payload?.ok || !payload.result) {
+          const requestError = new Error(payload?.error?.message || `Qwen3 backend error (${response.status})`);
+          requestError.code = payload?.error?.code || 'QWEN_BACKEND_ERROR';
+          requestError.status = response.status;
+          throw requestError;
+        }
+
+        this.lastLatencyMs = Number(payload.meta?.latencyMs) || 0;
+        this.lastTokensUsed = Number(payload.meta?.tokensUsed) || 0;
+        this.lastModelName = payload.meta?.model || 'Qwen3';
+        return payload.result;
+      } catch (error) {
+        console.warn('Backend Qwen3 classification failed:', error.message);
+        if (this.strictLlm) throw error;
+        return null;
+      }
     }
 
     const clustersSummary = existingClusters.map(c => `- [ID: ${c.id}] "${c.title}" (từ khóa: ${(c.keywords || []).join(', ')})`).join('\n');
@@ -230,9 +272,9 @@ Chỉ trả về định dạng JSON thuần túy (không kèm giải thích hay
    * Process incoming student message with 4 difficulty layers
    * and Instant Echo-Reply matching.
    */
-  async processMessage(rawText, author = null) {
+  async processMessage(rawText, author = null, metadata = {}) {
     this.messageIdCounter++;
-    const msgId = `M${this.messageIdCounter}`;
+    const msgId = metadata.id || `M${this.messageIdCounter}`;
     const timestamp = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     const user = author || `S${Math.floor(1000 + Math.random() * 9000)}`;
 
@@ -244,7 +286,9 @@ Chỉ trả về định dạng JSON thuần túy (không kèm giải thích hay
       rawTimestampMs: Date.now()
     };
 
-    this.messages.unshift(msgObj);
+    if (!this.messages.some((message) => message.id === msgId)) {
+      this.messages.unshift(msgObj);
+    }
     const lower = rawText.toLowerCase().trim();
 
     // =========================================================================
@@ -328,11 +372,15 @@ Chỉ trả về định dạng JSON thuần túy (không kèm giải thích hay
     // =========================================================================
     let matchedCluster = null;
     let maxScore = 0;
-    const modelBadge = this.provider === 'openrouter' && this.openRouterKey ? `OpenRouter Mini` : `AI Engine (Semantic NLP)`;
-    const latencyText = this.lastLatencyMs ? `${(this.lastLatencyMs / 1000).toFixed(2)}s` : `~0.3s`;
+    let modelBadge = this.provider === 'openrouter' && this.openRouterKey ? `OpenRouter Mini` : `AI Engine (Semantic NLP)`;
+    let latencyText = this.lastLatencyMs ? `${(this.lastLatencyMs / 1000).toFixed(2)}s` : `~0.3s`;
 
     // 1. Attempt LLM analysis if provider active
-    const llmResult = await this.analyzeWithLLM(rawText, this.clusters);
+    const llmResult = await this.analyzeWithLLM(rawText, this.clusters, metadata);
+    if (this.provider === 'backend-qwen' && llmResult) {
+      modelBadge = this.lastModelName || 'Qwen3';
+      latencyText = this.lastLatencyMs ? `${(this.lastLatencyMs / 1000).toFixed(2)}s` : 'Qwen3';
+    }
     if (llmResult && llmResult.matchedClusterId) {
       const cl = this.clusters.find(c => c.id === llmResult.matchedClusterId || c.clusterId === llmResult.matchedClusterId);
       if (cl) {
@@ -342,7 +390,7 @@ Chỉ trả về định dạng JSON thuần túy (không kèm giải thích hay
     }
 
     // 2. If no LLM match, perform local semantic matching
-    if (!matchedCluster) {
+    if (!matchedCluster && !(this.provider === 'backend-qwen' && llmResult)) {
       for (const cl of this.clusters) {
         let score = 0;
         const titleWords = cl.title.toLowerCase().split(/\s+/);

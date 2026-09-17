@@ -44,15 +44,21 @@ Dự án được phân tách thành **3 module độc lập**, mỗi module có
 ```
 
 ### ⚡ Khởi Chạy Nhanh (Quick Start)
+
+Để bật phân loại thật bằng Qwen3, sao chép `.env.example` thành `.env` trên máy chạy backend và điền `QWEN_API_KEY`. API key chỉ được đọc bởi `server.js`, không được gửi xuống trình duyệt.
+
 ```powershell
 # 1. Khởi động toàn bộ nền tảng (Port 3000)
-npm start          # Hoặc: node server.js
+npm start
 
 # 2. Chạy kiểm thử tự động Golden Set (24 cases - Đạt 87.5%)
 npm test           # Hoặc: node ai-core/eval/run_eval.js
 
 # 3. Chạy kiểm thử luồng tương tác Realtime WebSocket E2E
 npm run test:e2e   # Hoặc: node ai-core/eval/test_realtime_e2e.js
+
+# 4. Kiểm thử adapter Qwen3 backend (không gọi model thật)
+npm run test:ai-proxy
 ```
 
 ## Lịch — 6 checkpoint (ca 3A · 47,5 giờ)
