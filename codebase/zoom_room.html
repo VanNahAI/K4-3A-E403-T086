@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zoom Meeting — AI20K Workshop 01</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="zoom_room.css">
+</head>
+<body>
+
+  <!-- =========================================================================
+       ZOOM IN-MEETING STAGE LAYOUT
+       ========================================================================= -->
+  <div class="zoom-app-container">
+    
+    <!-- Top Zoom Bar -->
+    <header class="zoom-top-bar">
+      <div class="meeting-info-group">
+        <span class="security-shield">🛡️</span>
+        <span class="meeting-title" id="room-meeting-title">AI20K · Workshop 01 — Q&amp;A Onboarding &amp; Lab Setup</span>
+        <span class="rec-badge"><span class="rec-dot"></span> Đang ghi hình (Cloud)</span>
+      </div>
+      <div class="top-actions-group">
+        <span class="user-role-badge" id="room-role-pill">Học viên: Minh Quân (S0129)</span>
+        <button class="btn-zoom-top" onclick="toggleFullscreen()">⛶ Toàn màn hình</button>
+      </div>
+    </header>
+
+    <!-- Center Presentation Stage & Video Grid -->
+    <main class="zoom-stage-main">
+      
+      <!-- Slide Presentation Screen Share -->
+      <div class="screen-share-viewport">
+        <div class="screen-share-banner">
+          <span>🖥️ <strong>TS. Nguyễn Thành Nhân</strong> đang chia sẻ màn hình</span>
+          <div class="slide-nav-controls">
+            <button class="btn-slide-nav" onclick="prevSlide()">◀</button>
+            <span id="slide-num-text">Slide 3 / 8</span>
+            <button class="btn-slide-nav" onclick="nextSlide()">▶</button>
+          </div>
+        </div>
+
+        <!-- Slide Content Canvas -->
+        <div class="slide-canvas" id="slide-canvas">
+          <div class="slide-header-area">
+            <div class="slide-tag">AI20K · KỸ THUẬT TRIỂN KHAI THỰC CHIẾN</div>
+            <h2 id="slide-main-title">Lab 02 — Setup Môi Trường &amp; Tối Ưu Mô Hình AI</h2>
+          </div>
+
+          <div class="slide-body-grid" id="slide-body-content">
+            <div class="slide-col-left">
+              <h3>📌 Mục tiêu bài thực hành hôm nay:</h3>
+              <ul class="slide-bullet-list">
+                <li>Khởi động môi trường Docker &amp; gán cổng dịch vụ (CVAT / Label Studio).</li>
+                <li>Cấu hình API Key &amp; kiểm tra phân bổ tài nguyên GPU RTX 3050 (4GB VRAM).</li>
+                <li>Tích hợp cơ chế <strong>Echo-Responder</strong> tự động chặn lặp câu hỏi.</li>
+              </ul>
+              <div class="slide-code-box">
+                <code>docker run -d -p 8080:8080 --name ai_lab_cvat vlearn/cvat:latest</code>
+              </div>
+            </div>
+            <div class="slide-col-right">
+              <div class="slide-infographic-card">
+                <h4>Kiến trúc Pipeline Q&amp;A:</h4>
+                <div class="flow-chart-box">
+                  <div class="flow-node">Zoom Chat / Web</div>
+                  <div class="flow-arrow">⬇</div>
+                  <div class="flow-node highlight">Curator AI (Phân cụm)</div>
+                  <div class="flow-arrow">⬇</div>
+                  <div class="flow-node success">Echo-Shield (&lt; 5ms)</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="slide-footer-area">
+            <span>AI Product Hackathon 2024 · Track E</span>
+            <span>Hạn nộp chính thức: 23:59 Chủ Nhật (VLearn)</span>
+          </div>
+        </div>
+
+        <!-- Floating Speaker Video Tile (Teacher) -->
+        <div class="video-tile-speaker">
+          <div class="video-placeholder">
+            <div class="avatar-speaker">👨‍🏫</div>
+            <span class="audio-wave"><span></span><span></span><span></span></span>
+          </div>
+          <span class="video-name-tag">TS. Nguyễn Thành Nhân (Host)</span>
+        </div>
+
+        <!-- Floating Attendee Video Tile (Student) -->
+        <div class="video-tile-self" id="video-tile-self">
+          <div class="video-placeholder-self">
+            <div class="avatar-self" id="room-self-avatar">HV</div>
+          </div>
+          <span class="video-name-tag" id="room-self-nametag">Bạn (Minh Quân)</span>
+        </div>
+
+      </div>
+
+      <!-- In-Meeting Picture-in-Picture (PiP) Overlay Widget -->
+      <aside class="pip-embedded-overlay" id="pip-overlay">
+        <div class="pip-overlay-header" id="pip-drag-handle">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div class="pip-logo-mini">Q</div>
+            <strong style="font-size: 0.82rem; color: #fff;">Curator AI — Trợ Lý PiP</strong>
+          </div>
+          <div class="pip-window-btns">
+            <button class="btn-pip-win" onclick="popOutPiPWindow()" title="Mở cửa sổ rời ra màn hình ngoài (Pop-out Window)">↗</button>
+            <button class="btn-pip-win" onclick="toggleMinimizePiP()" title="Thu nhỏ / Mở rộng" id="btn-minimize-pip">−</button>
+          </div>
+        </div>
+
+        <!-- IFrame embedding the PiP Companion component -->
+        <iframe id="pip-companion-iframe" class="pip-iframe" src="about:blank"></iframe>
+      </aside>
+
+    </main>
+
+    <!-- Bottom Zoom Toolbar -->
+    <footer class="zoom-bottom-bar">
+      
+      <!-- Left Controls: Audio / Video -->
+      <div class="zoom-control-group">
+        <button class="btn-zoom-control" id="btn-zoom-mic" onclick="toggleZoomMic()">
+          <span class="control-icon" id="icon-zoom-mic">🎙️</span>
+          <span class="control-label" id="label-zoom-mic">Tắt tiếng</span>
+        </button>
+        <button class="btn-zoom-control" id="btn-zoom-video" onclick="toggleZoomVideo()">
+          <span class="control-icon" id="icon-zoom-cam">📹</span>
+          <span class="control-label" id="label-zoom-cam">Dừng Video</span>
+        </button>
+      </div>
+
+      <!-- Center Controls -->
+      <div class="zoom-control-group center">
+        <button class="btn-zoom-control">
+          <span class="control-icon">👥</span>
+          <span class="control-label">Học viên (42)</span>
+        </button>
+        <button class="btn-zoom-control" onclick="togglePiPOverlay()">
+          <span class="control-icon">💬</span>
+          <span class="control-label">Trò chuyện</span>
+        </button>
+        <button class="btn-zoom-control">
+          <span class="control-icon">🖥️</span>
+          <span class="control-label">Chia sẻ</span>
+        </button>
+        <button class="btn-zoom-control" onclick="triggerZoomReaction('👍')">
+          <span class="control-icon">👏</span>
+          <span class="control-label">Thả biểu cảm</span>
+        </button>
+
+        <!-- SPECIAL BRANDED CURATOR AI BUTTON -->
+        <button class="btn-zoom-control btn-curator-ai active" id="btn-toggle-ai-pip" onclick="togglePiPOverlay()">
+          <span class="control-icon">🤖</span>
+          <span class="control-label">Curator AI (PiP)</span>
+          <span class="ai-pulse-dot"></span>
+        </button>
+      </div>
+
+      <!-- Right Controls: Leave -->
+      <div class="zoom-control-group right">
+        <button class="btn-zoom-leave" onclick="leaveMeeting()">Rời khỏi lớp</button>
+      </div>
+
+    </footer>
+
+  </div>
+
+  <script src="zoom_room.js"></script>
+</body>
+</html>

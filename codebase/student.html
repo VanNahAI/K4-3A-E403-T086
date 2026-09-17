@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Cổng Hỏi Đáp Học Viên — Workshop Q&A Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* Student Mobile Specific Styles */
+    body {
+      background-color: #0b0f19;
+      color: #f8fafc;
+      padding-bottom: 70px;
+    }
+    .student-header {
+      background: #0f172a;
+      border-bottom: 1px solid #1e293b;
+      padding: 14px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .student-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .student-badge {
+      background: linear-gradient(135deg, #6366f1, #38bdf8);
+      color: #fff;
+      font-weight: 800;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      font-size: 1rem;
+    }
+    .student-id-tag {
+      background: rgba(99, 102, 241, 0.15);
+      color: #a5b4fc;
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .student-container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+    .student-nav-tabs {
+      display: flex;
+      background: #1e293b;
+      border-radius: 10px;
+      padding: 4px;
+      margin-bottom: 16px;
+      gap: 4px;
+    }
+    .student-tab-btn {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      font-weight: 600;
+      padding: 10px 0;
+      font-size: 0.85rem;
+      border-radius: 8px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s ease;
+    }
+    .student-tab-btn.active {
+      background: #6366f1;
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
+    }
+    
+    /* Ask Question Form */
+    .ask-card {
+      background: #131b2e;
+      border: 1px solid #1e293b;
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+    }
+    .ask-input {
+      width: 100%;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      color: #fff;
+      padding: 12px 14px;
+      font-size: 0.95rem;
+      font-family: inherit;
+      resize: vertical;
+      min-height: 90px;
+      margin-bottom: 12px;
+    }
+    .ask-input:focus {
+      outline: none;
+      border-color: #6366f1;
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+    }
+    .btn-submit-question {
+      width: 100%;
+      background: linear-gradient(135deg, #6366f1, #4f46e5);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
+    }
+    .btn-submit-question:hover {
+      background: #4338ca;
+    }
+
+    /* Pre-submit Deflection Suggestion Banner */
+    .deflection-box {
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 14px;
+      animation: fadeIn 0.3s ease;
+    }
+    .deflection-title {
+      font-size: 0.78rem;
+      color: #34d399;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+    .deflection-answer {
+      font-size: 0.84rem;
+      color: #f1f5f9;
+      line-height: 1.4;
+    }
+
+    /* History & FAQ Stream */
+    .section-heading {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .faq-item-card {
+      background: #131b2e;
+      border: 1px solid #1e293b;
+      border-left: 4px solid #10b981;
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+    }
+    .faq-q-title {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: #f8fafc;
+      margin-bottom: 6px;
+    }
+    .faq-a-body {
+      font-size: 0.85rem;
+      color: #cbd5e1;
+      line-height: 1.45;
+      background: rgba(0, 0, 0, 0.2);
+      padding: 10px;
+      border-radius: 8px;
+    }
+    .faq-meta {
+      font-size: 0.72rem;
+      color: #64748b;
+      margin-top: 6px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* Instant Echo Modal */
+    .echo-modal-card {
+      background: #1e1b4b;
+      border: 2px solid #a855f7;
+      border-radius: 16px;
+      padding: 24px 20px;
+      max-width: 480px;
+      width: 90%;
+      box-shadow: 0 10px 35px rgba(168, 85, 247, 0.4);
+      animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    @keyframes popIn {
+      from { transform: scale(0.85); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Student Header -->
+  <header class="student-header">
+    <div class="student-brand">
+      <div class="student-badge">HV</div>
+      <div>
+        <h1 style="font-size: 0.95rem; font-weight: 800; line-height: 1.2;">Hỏi Đáp Workshop AI20k</h1>
+        <span style="font-size: 0.7rem; color: #38bdf8; display: flex; align-items: center; gap: 4px;">
+          <span class="status-dot" id="student-ws-dot"></span> <span id="student-ws-status">Đang kết nối...</span>
+        </span>
+      </div>
+    </div>
+    <span class="student-id-tag" id="tag-student-id" onclick="promptChangeName()" title="Bấm để đổi tên/mã">
+      S0129 ▾
+    </span>
+  </header>
+
+  <div class="student-container">
+    
+    <!-- Nav Tabs -->
+    <div class="student-nav-tabs">
+      <button class="student-tab-btn active" id="tab-btn-ask" onclick="switchStudentTab('ask')">
+        ❓ Gửi câu hỏi
+      </button>
+      <button class="student-tab-btn" id="tab-btn-faqs" onclick="switchStudentTab('faqs')">
+        💡 Đáp án từ Thầy (<span id="count-student-faqs">0</span>)
+      </button>
+    </div>
+
+    <!-- VIEW 1: ASK QUESTION FORM -->
+    <div id="view-ask" class="student-view">
+      <div class="ask-card">
+        <!-- Pre-submit Deflection Banner (Instant Answer suggestion) -->
+        <div id="box-deflection" class="deflection-box hidden">
+          <div class="deflection-title">
+            <span>⚡ THẦY ĐÃ GIẢI ĐÁP CHỦ ĐỀ NÀY RỒI:</span>
+          </div>
+          <div class="deflection-answer" id="deflection-answer-text">...</div>
+          <small style="color: #34d399; font-size: 0.72rem; margin-top: 4px; display: block;">
+            ✓ Bạn đã có câu trả lời ngay, không cần chờ thầy giảng lại!
+          </small>
+        </div>
+
+        <form id="form-student-ask">
+          <textarea 
+            id="student-msg-input" 
+            class="ask-input" 
+            placeholder="Bạn đang vướng mắc gì trong bài Lab hoặc buổi học? Gõ vào đây..."
+            required
+          ></textarea>
+          <button type="submit" class="btn-submit-question" id="btn-submit-q">
+            <span>Gửi câu hỏi lên Workshop</span> 🚀
+          </button>
+        </form>
+      </div>
+
+      <!-- Student's Personal Sent History -->
+      <div class="section-heading">
+        <span>Câu hỏi của bạn trong buổi này</span>
+        <span id="student-my-count" style="font-size: 0.75rem; color: #64748b;">0 câu</span>
+      </div>
+      <div id="student-my-list">
+        <div style="text-align: center; padding: 24px; color: #64748b; font-size: 0.8rem;">
+          Chưa gửi câu hỏi nào. Khi bạn gặp lỗi, hãy gõ vào ô phía trên!
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 2: LIVE FAQS STREAM (GROUND TRUTH FROM LECTURER) -->
+    <div id="view-faqs" class="student-view hidden">
+      <div class="section-heading">
+        <span>Danh sách Thắc mắc Giảng viên đã Giải thích</span>
+      </div>
+      <div id="student-faqs-list">
+        <div style="text-align: center; padding: 30px; color: #64748b; font-size: 0.85rem;">
+          Chưa có câu hỏi nào được giải thích chính thức trong phiên học này.
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- POPUP MODAL: Instant Echo-Reply (When Student Asks An Answered Question) -->
+  <div id="modal-student-echo" class="modal-backdrop hidden">
+    <div class="echo-modal-card">
+      <div style="text-align: center; margin-bottom: 12px;">
+        <span style="font-size: 2.2rem;">⚡</span>
+        <h3 style="font-size: 1.1rem; color: #d8b4fe; font-weight: 800; margin-top: 4px;">ĐÁP ÁN TỨC THÌ TỪ GIẢNG VIÊN</h3>
+        <p style="font-size: 0.78rem; color: #c4b5fd;">AI phát hiện câu hỏi của bạn trùng với chủ đề Thầy vừa giải thích!</p>
+      </div>
+
+      <div style="background: rgba(0, 0, 0, 0.35); border-radius: 10px; padding: 12px; margin-bottom: 14px; border-left: 3px solid #10b981;">
+        <div style="font-size: 0.72rem; color: #34d399; font-weight: 700; text-transform: uppercase; margin-bottom: 4px;" id="echo-modal-time">
+          GIẢNG VIÊN ĐÃ GIẢI THÍCH:
+        </div>
+        <div style="font-size: 0.88rem; color: #f8fafc; line-height: 1.45;" id="echo-modal-answer">
+          ...
+        </div>
+      </div>
+
+      <button class="btn btn-accent" style="width: 100%; padding: 10px; font-weight: 700;" onclick="closeStudentEchoModal()">
+        Đã hiểu, cảm ơn Thầy! ✓
+      </button>
+    </div>
+  </div>
+
+  <script src="student.js"></script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+{
+  "name": "k4-3a-day05-06-ai-product-hackathon",
+  "version": "1.0.0",
+  "description": "**SPEC → Prototype → Demo.** Đây không phải cuộc thi code — đây là cuộc thi **tư duy sản phẩm AI**.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/VanNahAI/K4-3A-E403-T086.git"
+  },
+  "keywords": [],
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/VanNahAI/K4-3A-E403-T086/issues"
+  },
+  "homepage": "https://github.com/VanNahAI/K4-3A-E403-T086#readme",
+  "dependencies": {
+    "ws": "^8.21.3"
+  }
+}

@@ -1,0 +1,13 @@
+.DS_Store
+__pycache__/
+.env
+node_modules/
+
+# Hackathon forbidden raw data packs & organizer briefs
+data/
+01-challenge-brief.md
+02-guide.md
+03-ai-spec-template.md
+04-rubric.md
+tracks/
+further-reading/

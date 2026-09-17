@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Workshop Question Curator — Realtime Zoom Q&A App</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-layout">
+
+    <!-- =========================================================================
+         SIDEBAR NAVIGATION RAIL
+         ========================================================================= -->
+    <aside class="app-sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-badge">Q</div>
+        <div class="sidebar-brand-text">
+          <h2>Curator AI</h2>
+          <span>Trợ Lý Giảng Dạy &amp; Q&amp;A</span>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <span class="sidebar-label">TIẾN TRÌNH WORKSHOP</span>
+        <nav class="sidebar-steps">
+          <button class="step-btn active" id="nav-step-0" onclick="goToScreen(0)">
+            <span class="step-num">1</span>
+            <div class="step-text">
+              <strong>Cấu hình & Chọn lớp</strong>
+              <small>Bước 1 · Setup Onboarding</small>
+            </div>
+          </button>
+          <button class="step-btn" id="nav-step-1" onclick="goToScreen(1)">
+            <span class="step-num">2</span>
+            <div class="step-text">
+              <strong>Phiên Realtime (Cockpit)</strong>
+              <small>Bước 2-4 · Ingestion & Xử lý</small>
+            </div>
+          </button>
+          <button class="step-btn" id="nav-step-2" onclick="goToScreen(2)">
+            <span class="step-num">3</span>
+            <div class="step-text">
+              <strong>Tóm tắt phiên (Flow 5)</strong>
+              <small>Bước 5 · Báo cáo & Hậu kỳ</small>
+            </div>
+          </button>
+        </nav>
+      </div>
+
+      <!-- Quick Classroom Connection Widget -->
+      <div class="sidebar-card">
+        <div class="sidebar-card-head">
+          <span>📱 Học viên kết nối</span>
+          <span class="pulse-badge" id="sidebar-online-badge">0 Online</span>
+        </div>
+        <p class="sidebar-card-text">Quét mã QR để học viên hỏi đáp trực tiếp bằng điện thoại:</p>
+        <div class="sidebar-qr-preview" onclick="openQrModal()" title="Bấm để phóng to chiếu lớp">
+          <img id="sidebar-qr-img" src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=http://localhost:3000/student" alt="QR Code">
+          <span class="qr-zoom-hint">🔍 Bấm phóng to chiếu lớp</span>
+        </div>
+        <div class="sidebar-url-box">
+          <code id="sidebar-student-url">http://localhost:3000/student</code>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- =========================================================================
+         MAIN APPLICATION VIEWPORT
+         ========================================================================= -->
+    <div class="app-main-viewport">
+      
+      <!-- Top Navigation Bar -->
+      <header class="top-nav">
+        <div class="brand-context">
+          <div class="brand-title-row">
+            <h1>Workshop Question Curator</h1>
+            <span class="model-badge" id="header-model-badge" onclick="openSettingsModal()" title="Bấm để cấu hình AI Provider / API Key">
+              🤖 AI Engine: Sẵn sàng
+            </span>
+          </div>
+          <p class="subtitle">AI gom cụm câu hỏi, trích xuất giải đáp &amp; tự động phản hồi cho học viên sau</p>
+        </div>
+
+        <!-- Header Actions -->
+        <div class="header-action-group">
+          <button class="btn btn-sm btn-qr" onclick="openQrModal()" title="Mở mã QR cho học viên quét trên điện thoại">
+            📱 QR Chiếu Lớp
+          </button>
+          <button class="btn btn-sm btn-outline" onclick="openZoomImportModal()" title="Nhập hoặc dán log chat từ Zoom">
+            📥 Nhập Chat Zoom
+          </button>
+          <button class="btn btn-sm btn-outline" onclick="openSettingsModal()">
+            ⚙️ Cấu hình AI
+          </button>
+          <button class="btn btn-sm btn-discord" onclick="openDiscordModal()">
+            📢 Discord Recap
+          </button>
+        </div>
+
+        <!-- Live Top Metrics Bar -->
+        <div class="header-metrics">
+          <div class="metric-card">
+            <span class="metric-label">HV Online</span>
+            <span class="metric-val text-accent" id="metric-students-online">0</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Tổng tin nhắn</span>
+            <span class="metric-val" id="metric-total-msgs">0</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Cụm câu hỏi</span>
+            <span class="metric-val" id="metric-active-clusters">0</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Đã giải thích</span>
+            <span class="metric-val text-success" id="metric-answered">0</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Tự động trả lời</span>
+            <span class="metric-val text-echo" id="metric-echo">0</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Đã lọc rác</span>
+            <span class="metric-val text-warning" id="metric-filtered">0</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- Cháy Chat Radar Alert Banner (Fixed below nav, animated) -->
+      <aside id="radar-alert-banner" class="radar-banner hidden" role="alert">
+        <div class="radar-content">
+          <span class="radar-icon">🔥</span>
+          <div class="radar-text">
+            <h4 id="radar-title">CẢNH BÁO CHÁY CHAT: Điểm nghẽn thắc mắc tăng vọt!</h4>
+            <p id="radar-desc">Phát hiện nhiều học viên cùng kẹt một vấn đề trong thời gian ngắn. Khuyến nghị dừng màn hình để giải thích.</p>
+          </div>
+        </div>
+        <div class="radar-actions">
+          <button class="btn btn-sm btn-radar-action" id="btn-radar-address">Ưu tiên giải thích ngay</button>
+          <button class="btn-close-radar" onclick="dismissRadarBanner()">✕</button>
+        </div>
+      </aside>
+
+      <!-- =======================================================================
+           SCREEN 0: SETUP & WORKSHOP SELECTION (Step 1)
+           ======================================================================= -->
+      <section id="screen-0" class="app-screen">
+        <div class="screen-container">
+          <div class="eyebrow">Bước 1 · Khởi tạo phiên theo dõi</div>
+          <h2 class="hero-title">Gom đúng câu hỏi.<br/>Ưu tiên đúng lúc.</h2>
+          <p class="hero-desc">
+            Workshop Question Curator giúp giảng viên và trợ giảng nhận diện tức thì các vướng mắc phổ biến nhất trong luồng chat Zoom, tự động lọc tin rác và tập trung giải thích các chủ đề có tần suất lặp cao nhất.
+          </p>
+
+          <div class="setup-grid">
+            <!-- Left Card: Config Workshop -->
+            <div class="setup-card">
+              <div class="card-eyebrow">Cấu hình phiên theo dõi</div>
+              <h3>Chọn buổi học trực tuyến</h3>
+              <p class="setup-hint">Chọn workshop đang diễn ra để bắt đầu thu thập và tổng hợp luồng câu hỏi của học viên:</p>
+
+              <div class="form-group" style="margin-top: 16px;">
+                <label for="select-workshop-topic">Workshop Zoom đang mở:</label>
+                <select id="select-workshop-topic" class="form-select select-lg" onchange="handleWorkshopChange()">
+                  <option value="ws01">AI20K · Workshop 01 — Q&A Onboarding &amp; Lab Setup</option>
+                  <option value="ws02">AI20K · Workshop 02 — Problem Framing &amp; User Research</option>
+                  <option value="ws03">AI20K · Workshop 03 — Model Optimization &amp; Deployment</option>
+                </select>
+              </div>
+
+              <div class="session-meta-box">
+                <div class="meta-row">
+                  <span>👨‍🏫 Giảng viên phụ trách:</span>
+                  <strong>TS. Nguyễn Thành Nhân &amp; Trợ giảng K4</strong>
+                </div>
+                <div class="meta-row">
+                  <span>💬 Kênh phản hồi Discord:</span>
+                  <code>#qna-workshop-k4</code>
+                </div>
+                <div class="meta-row">
+                  <span>⚡ Trạng thái AI:</span>
+                  <span class="badge badge-info" id="setup-ai-badge">Sẵn sàng (Tự động)</span>
+                </div>
+              </div>
+
+              <div class="setup-actions-row">
+                <button class="btn btn-primary btn-lg" onclick="goToScreen(1)">
+                  🚀 Bắt đầu phiên trực tiếp (Realtime Engine) →
+                </button>
+                <button class="btn btn-outline" onclick="openZoomImportModal()">
+                  📥 Nhập sẵn chat Zoom
+                </button>
+              </div>
+            </div>
+
+            <!-- Right Card: 4 Core AI Decisions -->
+            <div class="setup-card">
+              <div class="card-eyebrow">Kiến trúc giải pháp</div>
+              <h3>4 Quyết định AI trung tâm</h3>
+              <ul class="setup-features-list">
+                <li>
+                  <span class="feature-num">1</span>
+                  <div>
+                    <strong>Chuẩn hóa câu hỏi tiếng Việt</strong>
+                    <p>Sửa lỗi chính tả, xử lý teencode và cách viết tắt của học viên trong lớp.</p>
+                  </div>
+                </li>
+                <li>
+                  <span class="feature-num">2</span>
+                  <div>
+                    <strong>Gom cụm ý định cốt lõi (Semantic Clustering)</strong>
+                    <p>Gom các câu hỏi khác cú pháp nhưng cùng bản chất vấn đề với độ tin cậy ≥ 85%.</p>
+                  </div>
+                </li>
+                <li>
+                  <span class="feature-num">3</span>
+                  <div>
+                    <strong>Trích xuất Ground Truth FAQ qua giọng nói</strong>
+                    <p>Web Speech API nghe lời giảng viên và AI đúc kết cặp câu hỏi - đáp án chuẩn mực.</p>
+                  </div>
+                </li>
+                <li>
+                  <span class="feature-num">4</span>
+                  <div>
+                    <strong>Phản hồi tự động tức thì (&lt; 5ms)</strong>
+                    <p>Tự động trả lời đáp án chính thức cho học viên hỏi lại sau mà không làm gián đoạn bài giảng.</p>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Bottom: 5-step lifecycle banner -->
+          <div class="flow-journey-card">
+            <h3>5 Bước Trải Nghiệm Người Dùng (End-to-End User Flow)</h3>
+            <div class="journey-steps-grid">
+              <div class="journey-item">
+                <div class="j-step">01 · Chọn</div>
+                <strong>Khởi tạo</strong>
+                <p>Chọn buổi học &amp; chiếu mã QR kết nối.</p>
+              </div>
+              <div class="journey-item">
+                <div class="j-step">02 · Nhận</div>
+                <strong>Thu nhận luồng</strong>
+                <p>Tiếp nhận chat Zoom &amp; câu hỏi web dồn dập.</p>
+              </div>
+              <div class="journey-item">
+                <div class="j-step">03 · Gom</div>
+                <strong>Phân cụm &amp; Xếp hạng</strong>
+                <p>AI tự động xếp hạng Top nóng theo số lần lặp.</p>
+              </div>
+              <div class="journey-item">
+                <div class="j-step">04 · Xử lý</div>
+                <strong>Đúc kết &amp; Phản hồi</strong>
+                <p>Thầy giải thích qua giọng nói $\rightarrow$ kích hoạt Auto-Reply.</p>
+              </div>
+              <div class="journey-item">
+                <div class="j-step">05 · Tóm tắt</div>
+                <strong>Báo cáo hậu kỳ</strong>
+                <p>Xuất Discord Recap &amp; tổng kết vấn đề tồn đọng.</p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- =======================================================================
+           SCREEN 1: LIVE REALTIME COCKPIT (Steps 2 - 4)
+           ======================================================================= -->
+      <section id="screen-1" class="app-screen hidden">
+        
+        <!-- Session Subheader Bar with End Session Button -->
+        <div class="session-control-bar">
+          <div class="active-session-title">
+            <span class="status-dot pulsing"></span>
+            <span>Đang theo dõi trực tiếp: <strong id="active-session-label">AI20K · Workshop 01 — Q&amp;A Onboarding &amp; Lab Setup</strong></span>
+            <span class="badge badge-success">Live Sync Active</span>
+          </div>
+          <div class="session-actions-group">
+            <button class="btn btn-sm btn-outline" onclick="goToScreen(0)">
+              ← Chọn lại workshop
+            </button>
+            <button class="btn btn-sm btn-success" onclick="goToScreen(2)">
+              🏁 Kết thúc phiên &amp; Xem tóm tắt (Flow 5) →
+            </button>
+          </div>
+        </div>
+
+        <!-- Main Dual Workspace -->
+        <main class="workspace-container">
+          
+          <!-- LEFT PANEL: Zoom Q&A / Chat Stream Simulator & Ingestion -->
+          <section class="panel left-panel">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <span class="status-dot pulsing"></span>
+                <h2>Luồng Chat / Q&amp;A Zoom (Input)</h2>
+              </div>
+              <span class="badge badge-info" id="stream-source-badge">Multi-Source Stream</span>
+            </div>
+
+            <!-- Realtime Ingestion Controls -->
+            <div class="simulator-controls" style="gap: 10px;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 8px; font-size: 0.78rem; color: #34d399; font-weight: 700;">
+                  <span class="status-dot pulsing"></span>
+                  <span>Đang kết nối nhận câu hỏi từ Zoom &amp; Web</span>
+                </div>
+                <button id="btn-clear-all" class="btn btn-sm btn-outline">Làm mới danh sách</button>
+              </div>
+
+              <!-- Manual Message Sender -->
+              <form id="form-send-message" class="send-message-box">
+                <div class="input-with-button">
+                  <input type="text" id="input-custom-msg" placeholder="Nhập câu hỏi thực tế của học viên để AI xử lý..." autocomplete="off">
+                  <button type="submit" class="btn btn-accent">Gửi vào luồng 🚀</button>
+                </div>
+              </form>
+            </div>
+
+            <!-- Live Stream Feed -->
+            <div class="stream-feed-header">
+              <span>Tin nhắn thời gian thực từ Zoom &amp; Web</span>
+              <span class="count-tag" id="stream-feed-count">0 tin</span>
+            </div>
+            <div class="stream-feed" id="stream-feed-list">
+              <div class="empty-state">Chưa có tin nhắn nào. Khi học viên gõ câu hỏi từ cổng hỏi đáp (hoặc Zoom), mô hình AI sẽ xử lý ngữ nghĩa và hiển thị tại đây theo thời gian thực.</div>
+            </div>
+          </section>
+
+          <!-- RIGHT PANEL: Question Curator Dashboard (Instructor / TA view) -->
+          <section class="panel right-panel">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <h2>Bảng Điều Khiển Giảng Viên</h2>
+                <span class="badge badge-info">Tự động gom cụm theo tần suất</span>
+              </div>
+              <!-- Filter Tabs -->
+              <div class="dashboard-tabs">
+                <button class="tab-btn active" data-tab="active">🔥 Top nóng (<span id="tab-count-active">0</span>)</button>
+                <button class="tab-btn tab-echo" data-tab="echo">⚡ Tự động giải đáp (<span id="tab-count-echo">0</span>)</button>
+                <button class="tab-btn" data-tab="review">⚠️ Cần duyệt (<span id="tab-count-review">0</span>)</button>
+                <button class="tab-btn" data-tab="answered">✅ Đã giải thích (<span id="tab-count-answered">0</span>)</button>
+                <button class="tab-btn" data-tab="filtered">🛡️ Đã lọc (<span id="tab-count-filtered">0</span>)</button>
+              </div>
+            </div>
+
+            <!-- Notice Bar for HAX G1 -->
+            <div class="notice-bar">
+              <span>💡 <b>Quy chế AI:</b> Hệ thống tự động gom câu hỏi có độ tin cậy ≥ 85%. Khi Giảng viên giải thích xong, AI sẽ đúc kết đáp án để <b>tự động trả lời tức thì</b> cho các học viên hỏi lại sau đó!</span>
+            </div>
+
+            <!-- Question Cards Container -->
+            <div class="dashboard-content" id="clusters-container">
+              <div class="empty-state large">
+                <div class="empty-icon">📊</div>
+                <h3>Đang đợi câu hỏi từ lớp học...</h3>
+                <p>Khi học viên gõ câu hỏi vào Zoom chat bên trái hoặc gửi từ điện thoại, AI sẽ phân loại ý định, tự động gom cụm và hiển thị các câu hỏi lặp lại nhiều nhất tại đây.</p>
+              </div>
+            </div>
+          </section>
+
+        </main>
+      </section>
+
+      <!-- =======================================================================
+           SCREEN 2: POST-WORKSHOP SUMMARY & ACTION REPORT (Flow 5)
+           ======================================================================= -->
+      <section id="screen-2" class="app-screen hidden">
+        <div class="screen-container">
+          <div class="eyebrow">Bước 5 · Kết thúc phiên &amp; Báo cáo hậu kỳ</div>
+          <h2 class="hero-title">Báo cáo tóm tắt phiên học</h2>
+          <p class="hero-desc">
+            Tổng hợp toàn bộ các thắc mắc trong buổi học, phân loại các vấn đề đã được giải thích trực tiếp, các câu hỏi được AI tự động phục vụ, và danh sách các vấn đề còn tồn đọng cần gửi thông báo nhắc lại trên Discord.
+          </p>
+
+          <!-- 6-Metric KPI Grid -->
+          <div class="summary-kpi-grid">
+            <div class="kpi-card">
+              <span class="kpi-label">Tổng câu hỏi nhận</span>
+              <strong class="kpi-val" id="sum-total-msgs">0</strong>
+              <small class="kpi-sub">Qua Zoom &amp; Web</small>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-label">Cụm chủ đề</span>
+              <strong class="kpi-val text-accent" id="sum-total-clusters">0</strong>
+              <small class="kpi-sub">Đã chuẩn hóa ngữ nghĩa</small>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-label">Đã giải thích</span>
+              <strong class="kpi-val text-success" id="sum-answered">0</strong>
+              <small class="kpi-sub">Thầy trực tiếp trả lời</small>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-label">Tự động phản hồi</span>
+              <strong class="kpi-val text-echo" id="sum-echo">0</strong>
+              <small class="kpi-sub">Trả lời tức thì (&lt; 5ms)</small>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-label">Thời gian tiết kiệm</span>
+              <strong class="kpi-val text-accent" id="sum-saved-time">~0 phút</strong>
+              <small class="kpi-sub">Không bị gián đoạn bài giảng</small>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-label">Tin rác / Chặn</span>
+              <strong class="kpi-val text-warning" id="sum-filtered">0</strong>
+              <small class="kpi-sub">Prompt Injection &amp; Spam</small>
+            </div>
+          </div>
+
+          <!-- Dual Breakdown Panels -->
+          <div class="summary-dual-grid">
+            
+            <!-- Left: Resolved FAQs Ground Truth -->
+            <div class="summary-section-card">
+              <div class="card-eyebrow">Đã giải quyết thành công</div>
+              <h3>Kho Tri Thức Đã Đúc Kết (Ground Truth FAQs)</h3>
+              <p class="section-desc">Các câu hỏi chính đã được Thầy giảng giải trực tiếp trong buổi học:</p>
+              <div class="summary-faq-list" id="sum-faq-list">
+                <div class="empty-state">Chưa có câu hỏi nào được giải thích trong phiên này.</div>
+              </div>
+            </div>
+
+            <!-- Right: Pending Issues & Discord Post Generator -->
+            <div class="summary-section-card">
+              <div class="card-eyebrow">Hậu kỳ &amp; Theo dõi tiếp theo</div>
+              <h3>Vấn Đề Tồn Đọng &amp; Kế Hoạch Đăng Discord</h3>
+              <p class="section-desc">Các câu hỏi còn lại cần giải đáp trên kênh Discord <code>#qna-workshop</code>:</p>
+              
+              <div class="summary-pending-list" id="sum-pending-list">
+                <div class="empty-state">Không có câu hỏi tồn đọng nào cần xử lý.</div>
+              </div>
+
+              <!-- Quick Discord Recap Box -->
+              <div class="discord-summary-preview">
+                <div class="dsp-header">
+                  <span>📢 Bản tin Discord Recap sẵn sàng đăng:</span>
+                  <button class="btn btn-sm btn-discord" onclick="copyDiscordRecapFromSummary()">📋 Sao chép Markdown</button>
+                </div>
+                <pre class="dsp-content" id="sum-discord-preview">Đang chuẩn bị nội dung...</pre>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Bottom Action Buttons -->
+          <div class="summary-actions-bar">
+            <button class="btn btn-primary btn-lg" onclick="goToScreen(1)">
+              ← Tiếp tục phiên trực tiếp
+            </button>
+            <button class="btn btn-outline btn-lg" onclick="exportSessionJson()">
+              💾 Xuất Báo Cáo JSON
+            </button>
+            <button class="btn btn-secondary btn-lg" onclick="resetDemoSession()">
+              ↻ Khởi tạo phiên mới
+            </button>
+          </div>
+
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL 1: Live Voice / Text Explanation & FAQ Extractor
+       ========================================================================= -->
+  <div id="modal-explain" class="modal-backdrop hidden">
+    <div class="modal-card modal-lg">
+      <div class="modal-header">
+        <div>
+          <h3>🎙️ Giải thích &amp; Trích xuất FAQ Tự Động</h3>
+          <p class="modal-subtitle">Thu âm tiếng nói hoặc gõ nhanh ý chính — AI sẽ đúc kết thành Ground Truth để tự động giải đáp cho các học viên hỏi lại sau đó.</p>
+        </div>
+        <button class="btn-close" onclick="closeExplainModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="explain-cluster-info">
+          <span class="cluster-badge">Chủ đề đang giải quyết:</span>
+          <h4 id="explain-modal-cluster-title" class="explain-topic-title">Tên chủ đề</h4>
+          <div class="explain-sample-quotes" id="explain-sample-quotes"></div>
+        </div>
+
+        <!-- Voice / Microphone Recorder Area -->
+        <div class="voice-recorder-box">
+          <div class="mic-status-row">
+            <button id="btn-toggle-mic" class="btn btn-mic">
+              <span id="mic-icon">🎙️</span> <span id="mic-label">Bật Micro nói trực tiếp</span>
+            </button>
+            <div id="mic-visualizer" class="mic-visualizer hidden">
+              <span class="sound-wave"></span><span class="sound-wave"></span><span class="sound-wave"></span><span class="sound-wave"></span>
+              <span class="mic-listening-text">Đang lắng nghe tiếng nói qua Micro laptop...</span>
+            </div>
+          </div>
+          <div class="speech-tip">
+            💡 Tự động nhận diện giọng nói tiếng Việt thời gian thực (Web Speech API).
+          </div>
+        </div>
+
+        <!-- Explanation Input / Transcript -->
+        <div class="form-group">
+          <label for="explain-text-input">Lời giải thích của Giảng viên (Có thể nói vào mic hoặc sửa chữ bên dưới):</label>
+          <textarea id="explain-text-input" rows="4" placeholder="Ví dụ: Hạn nộp chính thức là 23:59 Chủ Nhật ngày 17/9 trên VLearn. Nếu nộp muộn mỗi 24 giờ sẽ bị trừ 20% điểm bài lab..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeExplainModal()">Hủy</button>
+        <button class="btn btn-accent" id="btn-confirm-extract">
+          ✓ Hoàn thành &amp; Kích hoạt Auto-Reply
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL 2: Settings (OpenRouter / Local Model / Provider)
+       ========================================================================= -->
+  <div id="modal-settings" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>⚙️ Cấu hình AI Model &amp; Nhà cung cấp</h3>
+        <button class="btn-close" onclick="closeSettingsModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Chế độ suy luận (Provider):</label>
+          <select id="settings-provider-select" class="form-select">
+            <option value="openrouter">☁️ OpenRouter (Khuyên dùng — Chạy ngay không cần cài đặt)</option>
+            <option value="ollama">🖥️ Local Ollama (localhost:11434 / RTX 3050)</option>
+            <option value="mock">⚡ Built-in Intelligent Heuristic (Offline 100% không tốn key)</option>
+          </select>
+        </div>
+
+        <div id="openrouter-settings-fields">
+          <div class="form-group">
+            <label for="settings-openrouter-key">OpenRouter API Key:</label>
+            <input type="password" id="settings-openrouter-key" placeholder="sk-or-v1-..." autocomplete="off">
+            <small class="text-muted">Key lưu tại trình duyệt (localStorage), không commit vào git.</small>
+          </div>
+
+          <div class="form-group">
+            <label for="settings-openrouter-model">Model ID:</label>
+            <input type="text" id="settings-openrouter-model" placeholder="meta-llama/llama-3.2-3b-instruct:free">
+            <small class="text-muted">Gợi ý: <code>meta-llama/llama-3.2-3b-instruct:free</code>, <code>qwen/qwen-2.5-7b-instruct</code>, <code>google/gemini-flash-1.5-8b</code></small>
+          </div>
+        </div>
+
+        <div id="settings-status-box" class="settings-status-box">
+          <span id="settings-status-text">Đang dùng: <b>OpenRouter Mini</b></span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeSettingsModal()">Đóng</button>
+        <button class="btn btn-accent" onclick="saveSettings()">Lưu cấu hình</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL 3: 1-Click Discord K4 Post-Workshop Recap
+       ========================================================================= -->
+  <div id="modal-discord" class="modal-backdrop hidden">
+    <div class="modal-card modal-lg">
+      <div class="modal-header">
+        <div>
+          <h3>📢 Bản tin Recap Q&amp;A Workshop (Discord K4)</h3>
+          <p class="modal-subtitle">Định dạng Discord Markdown chuẩn để TA copy và post ngay vào kênh #qna-workshop.</p>
+        </div>
+        <button class="btn-close" onclick="closeDiscordModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="discord-preview-box">
+          <pre id="discord-markdown-content" class="discord-code-block"></pre>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeDiscordModal()">Đóng</button>
+        <button class="btn btn-discord" id="btn-copy-discord">
+          📋 Sao chép Markdown
+        </button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- =========================================================================
+       MODAL 5: Modal Split Group (HAX G9)
+       ========================================================================= -->
+  <div id="modal-split" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>✂️ Tách nhóm câu hỏi</h3>
+        <button class="btn-close" onclick="closeSplitModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p>Chọn các câu hỏi bạn muốn tách ra thành một chủ đề độc lập:</p>
+        <div id="split-items-list" class="split-checklist"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeSplitModal()">Hủy</button>
+        <button class="btn btn-accent" id="btn-confirm-split">Tách thành nhóm mới</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL 6: QR Code for Mobile Students
+       ========================================================================= -->
+  <div id="modal-qr" class="modal-backdrop hidden">
+    <div class="modal-card" style="text-align: center; max-width: 440px;">
+      <div class="modal-header">
+        <h3>📱 Cổng Hỏi Đáp Học Viên (Mobile QR)</h3>
+        <button class="btn-close" onclick="closeQrModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom: 12px; font-size: 0.82rem; color: var(--text-secondary);">
+          Chiếu mã này lên máy chiếu hoặc gửi link vào Zoom chat để học viên quét trên điện thoại:
+        </p>
+        <div style="background: #fff; padding: 16px; border-radius: 12px; display: inline-block; margin-bottom: 14px;">
+          <img id="qr-image" src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=http://localhost:3000/student" alt="QR Code" style="width: 180px; height: 180px; display: block;">
+        </div>
+        <div style="background: var(--bg-input); border-radius: 8px; padding: 10px; font-size: 0.8rem; word-break: break-all;">
+          <span style="color: var(--text-muted); display: block; font-size: 0.72rem; margin-bottom: 2px;">Link trực tiếp cho học viên:</span>
+          <a id="link-student-portal" href="/student" target="_blank" style="color: var(--accent); font-weight: 600; text-decoration: none;">
+            http://localhost:3000/student
+          </a>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeQrModal()">Đóng</button>
+        <button class="btn btn-accent" onclick="copyStudentLink()">📋 Sao chép Link</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL 7: Live Zoom Chatlog Importer
+       ========================================================================= -->
+  <div id="modal-zoom-import" class="modal-backdrop hidden">
+    <div class="modal-card modal-lg">
+      <div class="modal-header">
+        <div>
+          <h3>📥 Nhập / Dán Chatlog Trực Tiếp từ Zoom</h3>
+          <p class="modal-subtitle">Hỗ trợ định dạng Zoom chuẩn (HH:mm:ss From User to Everyone: Message).</p>
+        </div>
+        <button class="btn-close" onclick="closeZoomImportModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Dán nội dung hộp chat Zoom vào đây (Ctrl+A, Ctrl+C từ cửa sổ Zoom chat):</label>
+          <textarea id="zoom-chat-input" rows="7" placeholder="14:23:05 From S0129 to Everyone:
+Cho em hỏi hạn nộp bài lab 2 là mấy giờ ạ?
+
+14:24:12 From Minh Quân to Everyone:
+Hạn nộp lab 2 có bị trừ điểm không ạ?"></textarea>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <button class="btn btn-sm btn-secondary" onclick="loadSampleZoomSnippet()">⚡ Dán mẫu thử nghiệm Zoom</button>
+          <span id="zoom-import-status" style="font-size: 0.75rem; color: var(--text-muted);"></span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeZoomImportModal()">Hủy</button>
+        <button class="btn btn-accent" id="btn-do-zoom-import" onclick="executeZoomImport()">
+          Bắt đầu nạp vào luồng Stream 🚀
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="ai_engine.js"></script>
+  <script src="zoom_bridge.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

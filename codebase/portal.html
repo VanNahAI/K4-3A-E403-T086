@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cổng Tham Gia Workshop — AI20k Curator AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body {
+      background: radial-gradient(circle at 50% 20%, #1e1b4b 0%, #0b0f19 75%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+      overflow-y: auto;
+    }
+
+    .portal-container {
+      width: 100%;
+      max-width: 620px;
+      background: rgba(19, 27, 46, 0.95);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      border-radius: 20px;
+      padding: 32px 28px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(99, 102, 241, 0.15);
+      backdrop-filter: blur(12px);
+    }
+
+    .portal-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .live-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      padding: 4px 10px;
+      border-radius: 99px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    .pulse-red {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ef4444;
+      animation: pulse 1.5s infinite;
+    }
+
+    .workshop-title {
+      font-size: 1.45rem;
+      font-weight: 800;
+      color: #f8fafc;
+      line-height: 1.3;
+      margin: 10px 0 6px 0;
+    }
+
+    .workshop-speaker {
+      font-size: 0.88rem;
+      color: #94a3b8;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    /* Zoom Meeting Card Preview */
+    .zoom-preview-card {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 24px;
+    }
+
+    .zoom-preview-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .zoom-tag {
+      font-size: 0.72rem;
+      color: #38bdf8;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .zoom-link-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: #cbd5e1;
+      word-break: break-all;
+    }
+
+    .zoom-meta-row {
+      display: flex;
+      gap: 16px;
+      font-size: 0.75rem;
+      color: #94a3b8;
+      margin-top: 8px;
+    }
+
+    /* Role Switcher Tabs */
+    .role-tabs {
+      display: flex;
+      background: #0f172a;
+      border-radius: 10px;
+      padding: 4px;
+      margin-bottom: 22px;
+      gap: 4px;
+    }
+
+    .role-tab-btn {
+      flex: 1;
+      padding: 10px 12px;
+      border: none;
+      background: transparent;
+      color: #94a3b8;
+      font-weight: 700;
+      font-size: 0.88rem;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .role-tab-btn.active {
+      background: #6366f1;
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
+    }
+
+    /* Form Fields */
+    .form-row {
+      margin-bottom: 16px;
+    }
+
+    .form-row label {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #cbd5e1;
+      margin-bottom: 6px;
+    }
+
+    .form-control-portal {
+      width: 100%;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 12px 14px;
+      color: #fff;
+      font-size: 0.95rem;
+      font-family: inherit;
+      transition: border-color 0.2s;
+    }
+
+    .form-control-portal:focus {
+      outline: none;
+      border-color: #6366f1;
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+    }
+
+    /* Appearance Name Live Preview */
+    .preview-box {
+      background: rgba(99, 102, 241, 0.1);
+      border: 1px dashed rgba(99, 102, 241, 0.4);
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .preview-label {
+      font-size: 0.78rem;
+      color: #a5b4fc;
+    }
+
+    .preview-val {
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: #38bdf8;
+      font-family: var(--font-mono);
+    }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.8rem;
+      color: #cbd5e1;
+      margin-bottom: 20px;
+      cursor: pointer;
+    }
+
+    .checkbox-row input {
+      accent-color: #6366f1;
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+
+    /* Join CTA Button */
+    .btn-join-main {
+      width: 100%;
+      background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 15px;
+      font-size: 1.05rem;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+      transition: all 0.2s ease;
+    }
+
+    .btn-join-main:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(99, 102, 241, 0.5);
+    }
+
+    .portal-footer-links {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 18px;
+      font-size: 0.78rem;
+      color: #64748b;
+    }
+
+    .portal-footer-links a {
+      color: #a5b4fc;
+      text-decoration: none;
+    }
+
+    .portal-footer-links a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="portal-container">
+    
+    <!-- Brand & Status -->
+    <div class="portal-brand">
+      <div class="brand-badge">Q</div>
+      <div>
+        <h2 style="font-size: 1rem; font-weight: 800; color: #fff; line-height: 1.2;">Curator AI</h2>
+        <span style="font-size: 0.72rem; color: var(--accent); font-weight: 600;">Hệ Thống Trợ Lý Giảng Dạy &amp; Q&amp;A</span>
+      </div>
+      <div style="margin-left: auto;">
+        <span class="live-badge">
+          <span class="pulse-red"></span> LIVE WORKSHOP
+        </span>
+      </div>
+    </div>
+
+    <!-- Workshop Details -->
+    <h1 class="workshop-title" id="workshop-title">AI20K · Workshop 01 — Q&amp;A Onboarding &amp; Lab Setup</h1>
+    <div class="workshop-speaker">
+      <span>👨‍🏫 Giảng viên: <strong>TS. Nguyễn Thành Nhân &amp; Ban Trợ Giảng K4</strong></span>
+    </div>
+
+    <!-- Pre-configured Zoom Meeting Details -->
+    <div class="zoom-preview-card">
+      <div class="zoom-preview-head">
+        <span class="zoom-tag">📹 PHÒNG ZOOM ĐÃ CẤU HÌNH SẴN</span>
+        <button class="btn btn-sm btn-outline" style="font-size: 0.7rem; padding: 2px 8px;" onclick="promptEditZoom()">⚙️ Đổi link</button>
+      </div>
+      <div class="zoom-link-row">
+        <span id="zoom-url-text">https://us06web.zoom.us/j/84920419921?pwd=ai20k_workshop_lab</span>
+      </div>
+      <div class="zoom-meta-row">
+        <span>Meeting ID: <strong id="zoom-id-text" style="color: #fff;">849 2041 9921</strong></span>
+        <span>Mật mã: <strong id="zoom-pwd-text" style="color: #fff;">ai20k</strong></span>
+      </div>
+    </div>
+
+    <!-- Role Switcher -->
+    <div class="role-tabs">
+      <button class="role-tab-btn active" id="tab-role-student" onclick="switchRole('student')">
+        👨‍🎓 Tôi là Học viên (Student)
+      </button>
+      <button class="role-tab-btn" id="tab-role-lecturer" onclick="switchRole('lecturer')">
+        👨‍🏫 Tôi là Giảng viên (Host)
+      </button>
+    </div>
+
+    <!-- VIEW 1: STUDENT ONBOARDING FORM -->
+    <div id="role-student-view">
+      <div class="form-row">
+        <label for="student-name-input">Họ và tên của bạn:</label>
+        <input type="text" id="student-name-input" class="form-control-portal" placeholder="Ví dụ: Nguyễn Minh Quân" value="Nguyễn Minh Quân" oninput="updatePreviewName()">
+      </div>
+
+      <div class="form-row">
+        <label for="student-id-input">Mã học viên / MSSV:</label>
+        <input type="text" id="student-id-input" class="form-control-portal" placeholder="Ví dụ: S0129" value="S0129" oninput="updatePreviewName()">
+      </div>
+
+      <!-- Combined Appearance Name Preview -->
+      <div class="preview-box">
+        <span class="preview-label">Tên hiển thị trong Zoom &amp; Hỏi đáp:</span>
+        <span class="preview-val" id="preview-appearance-name">Minh Quân (S0129)</span>
+      </div>
+
+      <label class="checkbox-row">
+        <input type="checkbox" id="check-open-zoom-student" checked>
+        <span>Đồng thời mở phòng họp Zoom trong tab mới</span>
+      </label>
+
+      <button class="btn-join-main" onclick="joinAsStudent()">
+        <span>🚀 Tham gia Workshop (Mở Zoom &amp; Bật Trợ Lý PiP)</span>
+      </button>
+    </div>
+
+    <!-- VIEW 2: LECTURER ONBOARDING VIEW -->
+    <div id="role-lecturer-view" style="display: none;">
+      <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+          <span style="font-size: 1.4rem;">👨‍🏫</span>
+          <div>
+            <strong style="color: #34d399; font-size: 0.95rem;">TS. Nguyễn Thành Nhân (Host)</strong>
+            <div style="font-size: 0.75rem; color: #94a3b8;">Quyền Giảng viên chính · Điều phối luồng Q&amp;A</div>
+          </div>
+        </div>
+        <p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.4; margin-top: 8px;">
+          Khi bấm bắt đầu, hệ thống sẽ mở phòng họp Zoom đồng thời kích hoạt <b>Host Cockpit Picture-in-Picture</b> để Thầy theo dõi luồng câu hỏi, xem các câu hỏi lặp lại và thu âm trả lời tức thì.
+        </p>
+      </div>
+
+      <label class="checkbox-row">
+        <input type="checkbox" id="check-open-zoom-lecturer" checked>
+        <span>Đồng thời mở phòng họp Zoom trong tab mới</span>
+      </label>
+
+      <button class="btn-join-main" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);" onclick="joinAsLecturer()">
+        <span>🚀 Bắt đầu buổi giảng (Mở Zoom &amp; Bật Host Cockpit)</span>
+      </button>
+    </div>
+
+    <!-- Footer Switch Links -->
+    <div class="portal-footer-links">
+      <a href="/room" target="_blank">🖥️ Mô phỏng Zoom ngay trong tab trình duyệt</a>
+      <a href="/lecturer">Bảng điều khiển toàn màn hình →</a>
+    </div>
+
+  </div>
+
+  <script>
+    let currentRole = 'student';
+    let zoomConfig = {
+      url: 'https://us06web.zoom.us/j/84920419921?pwd=ai20k_workshop_lab',
+      meetingId: '849 2041 9921',
+      passcode: 'ai20k'
+    };
+
+    // Load URL params & zoom config on mount
+    window.addEventListener('DOMContentLoaded', async () => {
+      const params = new URLSearchParams(window.location.search);
+      const roleParam = params.get('role');
+      if (roleParam === 'lecturer') {
+        switchRole('lecturer');
+      } else {
+        switchRole('student');
+      }
+
+      try {
+        const res = await fetch('/api/config-zoom');
+        if (res.ok) {
+          zoomConfig = await res.json();
+          document.getElementById('zoom-url-text').textContent = zoomConfig.url;
+          document.getElementById('zoom-id-text').textContent = zoomConfig.meetingId;
+          document.getElementById('zoom-pwd-text').textContent = zoomConfig.passcode;
+          if (zoomConfig.topic) {
+            document.getElementById('workshop-title').textContent = zoomConfig.topic;
+          }
+        }
+      } catch (e) {
+        console.warn("Could not load zoom config:", e);
+      }
+
+      updatePreviewName();
+    });
+
+    function switchRole(role) {
+      currentRole = role;
+      const tabStudent = document.getElementById('tab-role-student');
+      const tabLecturer = document.getElementById('tab-role-lecturer');
+      const viewStudent = document.getElementById('role-student-view');
+      const viewLecturer = document.getElementById('role-lecturer-view');
+
+      if (role === 'student') {
+        tabStudent.classList.add('active');
+        tabLecturer.classList.remove('active');
+        viewStudent.style.display = 'block';
+        viewLecturer.style.display = 'none';
+      } else {
+        tabLecturer.classList.add('active');
+        tabStudent.classList.remove('active');
+        viewLecturer.style.display = 'block';
+        viewStudent.style.display = 'none';
+      }
+    }
+
+    function computeAppearanceName(fullName, id) {
+      let trimmed = (fullName || '').trim();
+      let parts = trimmed.split(/\s+/).filter(Boolean);
+      let shortName = parts.length > 1 ? parts.slice(-2).join(' ') : (parts[0] || 'Học viên');
+      let idStr = (id || '').trim();
+      return idStr ? `${shortName} (${idStr})` : shortName;
+    }
+
+    function updatePreviewName() {
+      const nameInput = document.getElementById('student-name-input').value;
+      const idInput = document.getElementById('student-id-input').value;
+      const appearance = computeAppearanceName(nameInput, idInput);
+      document.getElementById('preview-appearance-name').textContent = appearance;
+    }
+
+    function openCompanionWindow(role, name, id) {
+      const pipUrl = `/pip?role=${encodeURIComponent(role)}&name=${encodeURIComponent(name)}&id=${encodeURIComponent(id)}`;
+      const width = 430;
+      const height = 720;
+      const left = window.screen.availWidth - width - 20;
+      const top = 40;
+
+      // Pop-out companion window
+      window.open(
+        pipUrl, 
+        'CuratorAI_PiP', 
+        `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,status=no`
+      );
+
+      // Also navigate current page or open in-tab room as backup
+      setTimeout(() => {
+        window.location.href = `/room?role=${encodeURIComponent(role)}&name=${encodeURIComponent(name)}&id=${encodeURIComponent(id)}`;
+      }, 500);
+    }
+
+    function joinAsStudent() {
+      const name = document.getElementById('student-name-input').value.trim() || 'Học viên';
+      const id = document.getElementById('student-id-input').value.trim() || 'S0129';
+      const appearanceName = computeAppearanceName(name, id);
+      const shouldOpenZoom = document.getElementById('check-open-zoom-student').checked;
+
+      // 1. Open configured Zoom meeting in new tab if checked
+      if (shouldOpenZoom && zoomConfig.url) {
+        window.open(zoomConfig.url, '_blank');
+      }
+
+      // 2. Open Picture-in-Picture Companion & in-tab room
+      openCompanionWindow('student', appearanceName, id);
+    }
+
+    function joinAsLecturer() {
+      const shouldOpenZoom = document.getElementById('check-open-zoom-lecturer').checked;
+
+      // 1. Open configured Zoom meeting in new tab if checked
+      if (shouldOpenZoom && zoomConfig.url) {
+        window.open(zoomConfig.url, '_blank');
+      }
+
+      // 2. Open Picture-in-Picture Companion & in-tab room
+      openCompanionWindow('lecturer', 'TS. Nguyễn Thành Nhân (Host)', 'HOST');
+    }
+
+    async function promptEditZoom() {
+      const newUrl = prompt("Nhập đường dẫn Zoom Meeting mới:", zoomConfig.url);
+      if (newUrl && newUrl.trim()) {
+        zoomConfig.url = newUrl.trim();
+        document.getElementById('zoom-url-text').textContent = zoomConfig.url;
+        try {
+          await fetch('/api/config-zoom', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: zoomConfig.url })
+          });
+        } catch (e) {
+          console.warn("Failed to persist zoom url:", e);
+        }
+      }
+    }
+  </script>
+</body>
+</html>
