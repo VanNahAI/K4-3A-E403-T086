@@ -908,18 +908,35 @@ async function executeZoomImport() {
 }
 
 // Settings Modal
-function openSettingsModal() {
+async function openSettingsModal() {
   document.getElementById('settings-provider-select').value = window.engine.provider;
-  document.getElementById('settings-openrouter-key').value = window.engine.openRouterKey;
-  document.getElementById('settings-openrouter-model').value = window.engine.openRouterModel;
+  document.getElementById('settings-openrouter-key').value = window.engine.openRouterKey || '';
+  if (window.engine.openRouterModel) {
+    document.getElementById('settings-openrouter-model').value = window.engine.openRouterModel;
+  }
+  document.getElementById('llm-test-result').textContent = '';
   document.getElementById('modal-settings').classList.remove('hidden');
+
+  // Check server config
+  try {
+    const res = await fetch('/api/ai-config');
+    if (res.ok) {
+      const config = await res.json();
+      if (config.hasKey && !document.getElementById('settings-openrouter-key').value) {
+        document.getElementById('settings-openrouter-key').placeholder = `Key đang lưu trên máy chủ: ${config.maskedKey}`;
+      }
+      if (config.model) {
+        document.getElementById('settings-openrouter-model').value = config.model;
+      }
+    }
+  } catch (e) {}
 }
 
 function closeSettingsModal() {
   document.getElementById('modal-settings').classList.add('hidden');
 }
 
-function saveSettings() {
+async function saveSettings() {
   const provider = document.getElementById('settings-provider-select').value;
   const key = document.getElementById('settings-openrouter-key').value;
   const model = document.getElementById('settings-openrouter-model').value;
@@ -927,22 +944,88 @@ function saveSettings() {
   window.engine.setProvider(provider);
   window.engine.setOpenRouterConfig(key, model);
 
+  // Sync to server .env
+  try {
+    await fetch('/api/ai-config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ apiKey: key, model: model })
+    });
+  } catch (e) {}
+
   updateModelBadgeDisplay();
   closeSettingsModal();
-  alert("✓ Đã lưu cấu hình AI thành công!");
+  alert("✓ Đã lưu cấu hình và kích hoạt OpenRouter Live Model!");
+}
+
+async function testLiveLLMConnection() {
+  const btn = document.getElementById('btn-test-llm');
+  const resBox = document.getElementById('llm-test-result');
+  const key = document.getElementById('settings-openrouter-key').value.trim() || window.engine.openRouterKey;
+  const model = document.getElementById('settings-openrouter-model').value;
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Đang kết nối OpenRouter...';
+  resBox.style.color = '#38bdf8';
+  resBox.textContent = `Đang gửi prompt kiểm tra đến mô hình ${model}...`;
+
+  try {
+    const startTime = Date.now();
+    const res = await fetch('/api/llm-analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: 'Thầy ơi cho em hỏi cách sửa lỗi CUDA memory out of memory trên GPU Colab?',
+        existingClusters: [],
+        requestedModel: model,
+        apiKey: key
+      })
+    });
+
+    const data = await res.json();
+    const latency = Date.now() - startTime;
+
+    if (data.success && data.analysis) {
+      resBox.style.color = '#34d399';
+      resBox.innerHTML = `✅ <b>KẾT NỐI LIVE THÀNH CÔNG!</b><br>
+        ⏱️ Độ trễ: <b>${data.latencyMs || latency}ms</b> | Model: <b>${data.model}</b><br>
+        🎯 AI trích xuất: "${data.analysis.suggestedTitle}" (từ khóa: ${(data.analysis.keywords || []).join(', ')})`;
+    } else {
+      resBox.style.color = '#f87171';
+      resBox.textContent = `❌ Lỗi kết nối OpenRouter: ${data.error || data.reason || 'Vui lòng kiểm tra lại API key!'}`;
+    }
+  } catch (err) {
+    resBox.style.color = '#f87171';
+    resBox.textContent = `❌ Lỗi: ${err.message}`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🧪 Kiểm tra kết nối Live Model ngay';
+  }
 }
 
 function updateModelBadgeDisplay() {
   const badge = document.getElementById('header-model-badge');
   if (window.engine.provider === 'openrouter') {
-    const modelShort = window.engine.openRouterModel.split('/')[1] || window.engine.openRouterModel;
-    badge.textContent = `☁️ OpenRouter: ${modelShort}`;
+    const modelShort = (window.engine.openRouterModel || '').split('/')[1] || window.engine.openRouterModel || 'gemini-2.0-flash';
+    if (window.engine.openRouterKey || window.engine.serverHasKey) {
+      badge.textContent = `🟢 Live LLM: ${modelShort}`;
+      badge.style.background = 'rgba(16, 185, 129, 0.15)';
+      badge.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+      badge.style.color = '#34d399';
+    } else {
+      badge.textContent = `🟡 Live LLM (Chưa có key — Bấm để nhập)`;
+      badge.style.background = 'rgba(234, 179, 8, 0.15)';
+      badge.style.borderColor = 'rgba(234, 179, 8, 0.4)';
+      badge.style.color = '#facc15';
+    }
   } else if (window.engine.provider === 'ollama') {
     badge.textContent = `🖥️ Local Ollama (RTX 3050)`;
   } else {
     badge.textContent = `⚡ Built-in Smart AI`;
   }
 }
+
+window.testLiveLLMConnection = testLiveLLMConnection;
 
 // Discord Modal
 function openDiscordModal() {

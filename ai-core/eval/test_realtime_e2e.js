@@ -9,6 +9,28 @@
 
 const WebSocket = require('ws');
 const http = require('http');
+const net = require('net');
+const path = require('path');
+const { spawn } = require('child_process');
+
+function isPortOpen(port) {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    socket.setTimeout(600);
+    socket.on('connect', () => {
+      socket.destroy();
+      resolve(true);
+    });
+    socket.on('timeout', () => {
+      socket.destroy();
+      resolve(false);
+    });
+    socket.on('error', () => {
+      resolve(false);
+    });
+    socket.connect(port, '127.0.0.1');
+  });
+}
 
 function resetSession() {
   return new Promise((resolve) => {
@@ -20,6 +42,16 @@ function resetSession() {
 
 async function runE2ETest() {
   console.log("=== BẮT ĐẦU KIỂM THỬ REALTIME WEBSOCKET ===");
+
+  let serverProc = null;
+  const running = await isPortOpen(3000);
+  if (!running) {
+    console.log("⚡ Máy chủ chưa chạy, đang tự động khởi động server.js...");
+    const serverPath = path.join(__dirname, '..', '..', 'server.js');
+    serverProc = spawn(process.execPath, [serverPath], { stdio: 'ignore' });
+    await new Promise(r => setTimeout(r, 1500));
+  }
+
   await resetSession();
 
   const lecturerWs = new WebSocket('ws://localhost:3000/ws');
@@ -109,6 +141,9 @@ async function runE2ETest() {
 
   lecturerWs.close();
   studentWs.close();
+  if (serverProc) {
+    serverProc.kill();
+  }
 
   console.log("\n=== KẾT QUẢ KIỂM THỬ ===");
   console.log(`1. Lecturer nhận câu hỏi realtime: ${lecturerReceivedQuestion ? '✅ ĐẠT' : '❌ LỖI'}`);

@@ -12,6 +12,30 @@ const path = require('path');
 const os = require('os');
 const { WebSocketServer, WebSocket } = require('ws');
 
+// Automatically load .env file if present
+function loadEnv() {
+  const envPath = path.join(__dirname, '.env');
+  if (fs.existsSync(envPath)) {
+    const lines = fs.readFileSync(envPath, 'utf8').split('\n');
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const eqIdx = trimmed.indexOf('=');
+      if (eqIdx !== -1) {
+        const key = trimmed.slice(0, eqIdx).trim();
+        let val = trimmed.slice(eqIdx + 1).trim();
+        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+          val = val.slice(1, -1);
+        }
+        if (!process.env[key]) {
+          process.env[key] = val;
+        }
+      }
+    }
+  }
+}
+loadEnv();
+
 const PORT = process.env.PORT || 3000;
 const CODEBASE_DIR = path.join(__dirname, 'codebase');
 
@@ -53,6 +77,153 @@ const server = http.createServer((req, res) => {
   } else if (pathname === '/pip' || pathname === '/companion') {
     const roleParam = url.searchParams.get('role');
     pathname = roleParam === 'lecturer' ? '/lecturer-app/pip_lecturer.html' : '/student-app/pip_student.html';
+  }
+
+  // API: Get / Set OpenRouter AI Model Configuration
+  if (pathname === '/api/ai-config') {
+    if (req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => { body += chunk; });
+      req.on('end', () => {
+        try {
+          const json = JSON.parse(body);
+          if (json.apiKey !== undefined) {
+            process.env.OPENROUTER_API_KEY = json.apiKey.trim();
+          }
+          if (json.model) {
+            process.env.OPENROUTER_MODEL = json.model.trim();
+          }
+          // Persist to .env
+          const envContent = `OPENROUTER_API_KEY=${process.env.OPENROUTER_API_KEY || ''}\nOPENROUTER_MODEL=${process.env.OPENROUTER_MODEL || 'google/gemini-2.0-flash-exp:free'}\n`;
+          fs.writeFileSync(path.join(__dirname, '.env'), envContent, 'utf8');
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            success: true,
+            hasKey: !!process.env.OPENROUTER_API_KEY,
+            model: process.env.OPENROUTER_MODEL || 'google/gemini-2.0-flash-exp:free'
+          }));
+        } catch (e) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: e.message }));
+        }
+      });
+      return;
+    } else {
+      const key = process.env.OPENROUTER_API_KEY || '';
+      const masked = key ? `${key.slice(0, 10)}...${key.slice(-4)}` : '';
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        hasKey: !!key,
+        maskedKey: masked,
+        model: process.env.OPENROUTER_MODEL || 'google/gemini-2.0-flash-exp:free',
+        availableFreeModels: [
+          'google/gemini-2.0-flash-exp:free',
+          'meta-llama/llama-3.2-3b-instruct:free',
+          'qwen/qwen-2.5-7b-instruct:free',
+          'deepseek/deepseek-r1:free',
+          'mistralai/mistral-7b-instruct:free'
+        ]
+      }));
+      return;
+    }
+  }
+
+  // REST API: Proxy LLM Semantic Clustering to OpenRouter
+  if (req.method === 'POST' && pathname === '/api/llm-analyze') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', async () => {
+      try {
+        const json = JSON.parse(body);
+        const { text, existingClusters, requestedModel } = json;
+        const apiKey = process.env.OPENROUTER_API_KEY || json.apiKey || '';
+
+        if (!apiKey) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, reason: 'no_api_key', fallback: true }));
+          return;
+        }
+
+        const model = requestedModel || process.env.OPENROUTER_MODEL || 'google/gemini-2.0-flash-exp:free';
+        const clustersSummary = (existingClusters || [])
+          .map(c => `- [ID: ${c.id}] "${c.title}" (từ khóa: ${(c.keywords || []).join(', ')})`)
+          .join('\n');
+
+        const prompt = `Bạn là hệ thống AI phân loại câu hỏi trong lớp học workshop công nghệ.
+Học viên vừa gửi câu hỏi: "${text}"
+
+Các nhóm câu hỏi hiện có trong lớp:
+${clustersSummary || "(Chưa có nhóm nào)"}
+
+Yêu cầu:
+1. Nếu câu hỏi có cùng bản chất ngữ nghĩa với 1 nhóm có sẵn, trả về "matchedClusterId".
+2. Nếu là chủ đề mới, hãy tạo "suggestedTitle" (dưới 10 từ, chuẩn hóa tiếng Việt, nêu rõ bản chất vấn đề) và trích xuất 3-5 "keywords".
+
+Chỉ trả về định dạng JSON thuần túy (không kèm giải thích hay markdown backticks):
+{
+  "matchedClusterId": null,
+  "suggestedTitle": "Tiêu đề chuẩn hóa dưới 10 từ",
+  "keywords": ["từ khóa 1", "từ khóa 2", "từ khóa 3"],
+  "confidence": 0.95
+}`;
+
+        const startTime = Date.now();
+        const llmRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiKey}`,
+            "HTTP-Referer": "https://ai20k-workshop-curator.local",
+            "X-Title": "Workshop Question Curator"
+          },
+          body: JSON.stringify({
+            model: model,
+            messages: [
+              { role: "system", content: "Bạn là AI phân tích ngữ nghĩa câu hỏi học tập, luôn trả về JSON hợp lệ." },
+              { role: "user", content: prompt }
+            ],
+            temperature: 0.1
+          }),
+          signal: AbortSignal.timeout(8000)
+        });
+
+        if (!llmRes.ok) {
+          const errText = await llmRes.text();
+          throw new Error(`OpenRouter HTTP ${llmRes.status}: ${errText.slice(0, 150)}`);
+        }
+
+        const data = await llmRes.json();
+        const latencyMs = Date.now() - startTime;
+        const rawContent = data.choices[0].message.content.trim();
+        let parsed;
+        try {
+          const cleanJson = rawContent.replace(/```json/gi, '').replace(/```/g, '').trim();
+          parsed = JSON.parse(cleanJson);
+        } catch (parseErr) {
+          const match = rawContent.match(/\{[\s\S]*\}/);
+          if (match) {
+            parsed = JSON.parse(match[0]);
+          } else {
+            throw parseErr;
+          }
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true,
+          analysis: parsed,
+          model: model,
+          latencyMs: latencyMs,
+          tokens: data.usage ? data.usage.total_tokens : 0
+        }));
+      } catch (err) {
+        console.warn("[LLM Proxy] OpenRouter call failed:", err.message);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: err.message, fallback: true }));
+      }
+    });
+    return;
   }
 
   // API: Get / Set pre-configured Zoom meeting link

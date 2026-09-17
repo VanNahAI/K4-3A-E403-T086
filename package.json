@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "test": "node ai-core/eval/run_eval.js",
-    "test:e2e": "node ai-core/eval/test_realtime_e2e.js"
+    "test:e2e": "node ai-core/eval/test_realtime_e2e.js",
+    "test:llm": "node ai-core/test_llm.js"
   },
   "repository": {
     "type": "git",

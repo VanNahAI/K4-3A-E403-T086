@@ -56,11 +56,17 @@ const KNOWLEDGE_BASE = [
 class UnifiedAIEngine {
   constructor() {
     // OpenRouter / Model Config
-    this.provider = localStorage.getItem('curator_provider') || 'openrouter'; // 'openrouter', 'ollama', 'mock'
-    this.openRouterKey = localStorage.getItem('curator_openrouter_key') || '';
-    this.openRouterModel = localStorage.getItem('curator_openrouter_model') || 'meta-llama/llama-3.2-3b-instruct:free';
+    this.provider = (typeof localStorage !== 'undefined' && localStorage.getItem('curator_provider')) || 'openrouter'; // 'openrouter', 'ollama', 'mock'
+    this.openRouterKey = (typeof localStorage !== 'undefined' && localStorage.getItem('curator_openrouter_key')) || (typeof process !== 'undefined' && process.env.OPENROUTER_API_KEY) || '';
+    this.openRouterModel = (typeof localStorage !== 'undefined' && localStorage.getItem('curator_openrouter_model')) || (typeof process !== 'undefined' && process.env.OPENROUTER_MODEL) || 'google/gemini-2.0-flash-exp:free';
     this.ollamaUrl = 'http://localhost:11434/v1';
     this.ollamaModel = 'qwen2.5:3b-instruct';
+    this.isLiveLLM = false;
+    this.lastModelUsed = '';
+    this.serverHasKey = false;
+
+    // Auto-sync server config in browser
+    this.syncServerConfig();
 
     // Core Data Stores
     this.messages = [];
@@ -86,11 +92,31 @@ class UnifiedAIEngine {
     this.lastTokensUsed = 0;
   }
 
+  async syncServerConfig() {
+    if (typeof window !== 'undefined' && window.location && typeof fetch !== 'undefined') {
+      try {
+        const res = await fetch('/api/ai-config');
+        if (res.ok) {
+          const config = await res.json();
+          if (config.hasKey) {
+            this.serverHasKey = true;
+            if (config.model) this.openRouterModel = config.model;
+          }
+          if (config.maskedKey && !this.openRouterKey) {
+            this.serverMaskedKey = config.maskedKey;
+          }
+        }
+      } catch (e) {}
+    }
+  }
+
   setOpenRouterConfig(apiKey, model) {
     this.openRouterKey = apiKey ? apiKey.trim() : '';
     if (model) this.openRouterModel = model.trim();
-    localStorage.setItem('curator_openrouter_key', this.openRouterKey);
-    localStorage.setItem('curator_openrouter_model', this.openRouterModel);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('curator_openrouter_key', this.openRouterKey);
+      localStorage.setItem('curator_openrouter_model', this.openRouterModel);
+    }
   }
 
   setProvider(provider) {
@@ -125,6 +151,9 @@ class UnifiedAIEngine {
       url = `${this.ollamaUrl}/chat/completions`;
       model = this.ollamaModel;
     } else {
+      if (!this.openRouterKey) {
+        this.openRouterKey = (typeof process !== 'undefined' && process.env.OPENROUTER_API_KEY) || '';
+      }
       if (!this.openRouterKey) {
         throw new Error("Chưa nhập OpenRouter API Key!");
       }
@@ -188,10 +217,46 @@ class UnifiedAIEngine {
   }
 
   /**
-   * Semantic Analysis using OpenRouter / LLM
+   * Semantic Analysis using OpenRouter / LLM (Server Proxy & Direct Fallback)
    */
   async analyzeWithLLM(text, existingClusters) {
-    if (this.provider === 'mock' || (this.provider === 'openrouter' && !this.openRouterKey)) {
+    if (this.provider === 'mock') {
+      return null;
+    }
+
+    // 1. Try Server-Side LLM Proxy if running in browser
+    if (typeof window !== 'undefined' && window.location && typeof fetch !== 'undefined') {
+      try {
+        const res = await fetch('/api/llm-analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: text,
+            existingClusters: existingClusters,
+            requestedModel: this.openRouterModel,
+            apiKey: this.openRouterKey
+          }),
+          signal: AbortSignal.timeout(9000)
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.analysis) {
+            this.lastLatencyMs = data.latencyMs || 450;
+            this.lastModelUsed = data.model || this.openRouterModel;
+            this.isLiveLLM = true;
+            console.log(`[AI Engine] ⚡ Live LLM Analysis received (${this.lastModelUsed}, ${this.lastLatencyMs}ms):`, data.analysis);
+            return data.analysis;
+          }
+        }
+      } catch (e) {
+        console.warn("[AI Engine] Server LLM proxy error, falling back to direct:", e.message);
+      }
+    }
+
+    // 2. Direct OpenRouter / Ollama call (for Node.js runtime or direct client key)
+    const effectiveKey = this.openRouterKey || (typeof process !== 'undefined' && process.env.OPENROUTER_API_KEY) || '';
+    if (!effectiveKey && this.provider !== 'ollama') {
       return null;
     }
 
@@ -217,11 +282,23 @@ Chỉ trả về định dạng JSON thuần túy (không kèm giải thích hay
 
     try {
       const response = await this.callLLM(prompt, "Bạn là AI phân tích ngữ nghĩa câu hỏi học tập, luôn trả về JSON hợp lệ.");
-      const cleanJson = response.replace(/```json/g, '').replace(/```/g, '').trim();
-      const parsed = JSON.parse(cleanJson);
+      let parsed;
+      try {
+        const cleanJson = response.replace(/```json/gi, '').replace(/```/g, '').trim();
+        parsed = JSON.parse(cleanJson);
+      } catch (parseErr) {
+        const match = response.match(/\{[\s\S]*\}/);
+        if (match) {
+          parsed = JSON.parse(match[0]);
+        } else {
+          throw parseErr;
+        }
+      }
+      this.isLiveLLM = true;
+      this.lastModelUsed = this.openRouterModel;
       return parsed;
     } catch (err) {
-      console.warn("LLM call skipped/failed, using intelligent local semantic extractor:", err.message);
+      console.warn("[AI Engine] Direct LLM call skipped/failed, using local semantic extractor:", err.message);
       return null;
     }
   }
@@ -328,13 +405,26 @@ Chỉ trả về định dạng JSON thuần túy (không kèm giải thích hay
     // =========================================================================
     let matchedCluster = null;
     let maxScore = 0;
-    const modelBadge = this.provider === 'openrouter' && this.openRouterKey ? `OpenRouter Mini` : `AI Engine (Semantic NLP)`;
-    const latencyText = this.lastLatencyMs ? `${(this.lastLatencyMs / 1000).toFixed(2)}s` : `~0.3s`;
 
     // 1. Attempt LLM analysis if provider active
+    this.isLiveLLM = false;
     const llmResult = await this.analyzeWithLLM(rawText, this.clusters);
-    if (llmResult && llmResult.matchedClusterId) {
-      const cl = this.clusters.find(c => c.id === llmResult.matchedClusterId || c.clusterId === llmResult.matchedClusterId);
+
+    const modelBadge = this.isLiveLLM
+      ? `OpenRouter (${(this.lastModelUsed || this.openRouterModel).split('/')[1] || 'Live LLM'})`
+      : `AI Engine (Semantic NLP)`;
+    const latencyText = this.lastLatencyMs ? `${this.lastLatencyMs}ms` : `~15ms`;
+
+    if (llmResult && (llmResult.matchedClusterId || llmResult.matchedTitle)) {
+      const targetId = String(llmResult.matchedClusterId || '').replace(/[\[\]]/g, '').trim();
+      let cl = this.clusters.find(c => 
+        String(c.id) === targetId || 
+        String(c.clusterId) === targetId ||
+        (llmResult.matchedTitle && c.title.toLowerCase().includes(llmResult.matchedTitle.toLowerCase()))
+      );
+      if (!cl && targetId) {
+        cl = this.clusters.find(c => String(c.id).includes(targetId) || targetId.includes(String(c.id)));
+      }
       if (cl) {
         matchedCluster = cl;
         maxScore = 10;

@@ -10,6 +10,7 @@ The intelligent engine powering the **Workshop Question Curator** platform. Resp
 ai-core/
 ├── ai_engine.js          # Unified AI Engine (Semantic NLP + OpenRouter/Ollama LLM)
 ├── mock_engine.js        # Deterministic engine for offline regression testing
+├── test_llm.js           # CLI tester for live OpenRouter model clustering & latency
 ├── eval/
 │   ├── golden_set.json   # 24 test cases covering 4 difficulty layers
 │   ├── run_eval.js       # Automated evaluation benchmark runner
@@ -18,6 +19,31 @@ ai-core/
 ├── AGENTS.md             # Developer & AI Agent coding rules for this module
 └── README.md             # This document
 ```
+
+---
+
+## 🌐 Live OpenRouter Free Model Setup
+
+To use live cloud LLM clustering during the demo instead of offline mode:
+
+1. **Add your API Key to `.env`** (at project root):
+   ```env
+   OPENROUTER_API_KEY=sk-or-v1-xxxxxxxxxxxxxxxxxxxx
+   OPENROUTER_MODEL=google/gemini-2.0-flash-exp:free
+   ```
+2. **Verify the Live Model instantly**:
+   ```powershell
+   npm run test:llm
+   # hoặc: node ai-core/test_llm.js [api_key]
+   ```
+3. **Supported Free Models on OpenRouter**:
+   - `google/gemini-2.0-flash-exp:free` *(Khuyên dùng: tốc độ cao, trích xuất tiếng Việt xuất sắc)*
+   - `meta-llama/llama-3.2-3b-instruct:free`
+   - `qwen/qwen-2.5-7b-instruct:free`
+   - `deepseek/deepseek-r1:free`
+   - `mistralai/mistral-7b-instruct:free`
+
+> **Lưu ý bảo mật**: File `.env` đã được cấu hình trong `.gitignore` để không bao giờ bị lộ hoặc commit lên GitHub. Nếu không có API Key, hệ thống tự động fallback sang mô hình Semantic NLP offline mượt mà không bị lỗi.
 
 ---
 
