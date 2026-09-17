@@ -48,8 +48,8 @@ Dự án được phân tách thành **3 module độc lập**, mỗi module có
 # 1. Khởi động toàn bộ nền tảng (Port 3000)
 npm start          # Hoặc: node server.js
 
-# 2. Chạy kiểm thử tự động Golden Set (24 cases - Đạt 87.5%)
-npm test           # Hoặc: node ai-core/eval/run_eval.js
+# 2. Chạy kiểm thử tự động Golden Set (25 cases - Đạt 100.0%)
+npm test           # Hoặc: node ai-core/eval/run_eval.js (hoặc node eval/run_eval.js)
 
 # 3. Chạy kiểm thử luồng tương tác Realtime WebSocket E2E
 npm run test:e2e   # Hoặc: node ai-core/eval/test_realtime_e2e.js

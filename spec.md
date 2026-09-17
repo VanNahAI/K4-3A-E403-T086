@@ -104,9 +104,9 @@ Chọn **Workshop Question Curator** vì vấn đề xuất hiện ở cả hai 
 - **Mức:** **Working Prototype**
   - **Phần Mock:** Luồng tin nhắn Zoom chat đến được mô phỏng giả lập từ tập chatlog thật để đảm bảo tốc độ trình diễn trong 5 phút.
   - **Phần Thật (Real AI):**
-    - Lời gọi AI thật (OpenRouter Mini / Local Qwen2.5-3B) ở khâu **Trích xuất Cặp FAQ (Canonical Q&A extraction)**.
+    - Lời gọi AI thật (OpenRouter Mini / Local Qwen2.5-3B) ở khâu **Trích xuất Cặp FAQ (Canonical Q&A extraction)** và **Thẩm định ngữ nghĩa câu hỏi học viên gõ thời gian thực (Live Typing Deflection Verification)**.
     - Nhận diện giọng nói thật thời gian thực (**Web Speech API - Speech to Text**).
-    - Bộ đệm đối soát ngữ nghĩa và tự động trả lời (Echo-Responder).
+    - Bộ đệm đối soát ngữ nghĩa và tự động trả lời (Echo-Responder) có bộ lọc chống mâu thuẫn thời gian (Temporal Conflict Guard).
 
 ### 4.4 Automation Level & Lý do Cost-of-Error
 - **Giai đoạn 1 (Câu hỏi mới chưa giải thích):** **Augment** (Chi phí lỗi cao: Nếu AI trả lời sai kiến thức kỹ thuật, học viên làm sai lab $\rightarrow$ Giảng viên là người quyết định và giải thích duy nhất).
@@ -160,7 +160,7 @@ Chọn **Workshop Question Curator** vì vấn đề xuất hiện ở cả hai 
 2. **Độ sạch bộ lọc (Guardrail Precision):** $100\%$ các câu hỏi tấn công Prompt Injection và $0\%$ tin nhắn rác lọt vào bảng điều khiển giảng viên.
 3. **Độ chuẩn xác phản hồi lặp (Echo-Reply Accuracy):** $100\%$ câu trả lời tự động cho học viên sau phải lấy chính xác từ lời giảng viên đã đúc kết.
 
-### 7.2 Golden Set (25 Test Cases trong `eval/golden_set.json`)
+### 7.2 Golden Set (25 Test Cases trong `ai-core/eval/golden_set.json` & `eval/golden_set.json`)
 - **Phân bổ thực tế:** 2 case Lớp ① (Nguồn sự thật & Echo), 5 case Lớp ② (Mơ hồ), 4 case Lớp ③ (Tấn công & Spam), 14 case Lớp ④ (Domain kỹ thuật). Mỗi lớp có ít nhất 2 case theo yêu cầu rubric.
 - **Nguồn:** 10 case trích xuất trực tiếp từ chatlog K4 (`M03823`, `M69081`, `M19124`, `M51326`, `M82163`, `M91580`, `M86786`, `M77452`, `M05641`, `M33002`) + 15 case synthetic theo ma trận rủi ro.
 
@@ -171,7 +171,7 @@ Chọn **Workshop Question Curator** vì vấn đề xuất hiện ở cả hai 
 - **Kết quả:** **25/25 cases ĐẠT (100,0%)** $\rightarrow$ **VƯỢT QUALITY BAR CAM KẾT (100,0% vs 85,0%)**.
 - **Điều kiện cứng:** 100% case prompt injection bị chặn và không có lỗi crash trong lượt chạy.
 - **Các lỗi đã sửa:** câu đa ý định `GS17` được đưa vào luồng tách ý; câu nối tiếp thiếu ngữ cảnh `GS22` được chuyển sang cần duyệt; FAQ matcher không còn trả nhầm câu hỏi Daily Standup hoặc “đã nộp trên VLearn” thành quy chế nộp muộn.
-- **Bằng chứng chạy:** bảng đầy đủ trong `eval/eval_results_run1.md`; runner dùng `node eval/run_eval.js` và tự lấy số case từ `golden_set.json`.
+- **Bằng chứng chạy:** bảng đầy đủ trong `ai-core/eval/eval_results_run1.md` (đồng bộ tại `eval/eval_results_run1.md`); runner dùng `npm test` hoặc `node ai-core/eval/run_eval.js` (hoặc `node eval/run_eval.js`) và tự lấy số case từ `golden_set.json`.
 
 ---
 
@@ -208,6 +208,7 @@ Chọn **Workshop Question Curator** vì vấn đề xuất hiện ở cả hai 
 | 17/9 CP4 | Sửa Echo-Responder, tách ý định và câu hỏi nối tiếp thiếu ngữ cảnh | Case GS17, GS22 và test hồi quy realtime |
 | 17/9 CP4 | Bổ sung GS25 để mọi lớp chỗ khó có ít nhất 2 case; chạy lại đạt 25/25 | Yêu cầu coverage R4 |
 | 17/9 CP4 | Chuẩn hóa Evidence B bằng phép đếm tái lập và thêm khảo sát ẩn danh n=25 | `validation/evidence_mining_log.md`, `validation/problem_survey_log.md` |
+| 17/9 CP4 (Tối ưu) | Chuẩn hóa kiến trúc module 3 phần (ai-core, student-app, lecturer-app), tích hợp xác thực LLM live deflection và giữ vững kết quả 25/25 | Bảo toàn 100% Quality Bar & tương thích ngược |
 
 ---
 *Bản đặc tả CP4 khóa Quality Bar ở mức ≥85%, 100% chặn Prompt Injection và 0 lỗi crash. Các lượt đo sau CP4 chỉ cập nhật kết quả, không thay đổi chuẩn đạt.*
