@@ -322,6 +322,20 @@
                   <button type="submit" class="btn btn-accent">Gửi vào luồng 🚀</button>
                 </div>
               </form>
+
+              <!-- Quick Test Scenarios Bar -->
+              <div class="scenarios-panel" style="background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(99, 102, 241, 0.25); border-radius: 8px; padding: 10px; margin-top: 4px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                  <span style="font-size: 0.72rem; font-weight: 800; color: #a5b4fc; text-transform: uppercase; letter-spacing: 0.05em;">⚡ Kịch bản thử nghiệm nhanh:</span>
+                  <button id="btn-toggle-stream" type="button" class="btn btn-sm btn-outline" style="font-size: 0.72rem; padding: 2px 8px;">▶ Luồng tự động</button>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                  <button type="button" class="btn btn-sm btn-secondary" style="font-size: 0.73rem; text-align: left; padding: 6px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" onclick="triggerScenario('deadline')">🔥 Cháy chat: Deadline Lab 2 (5 tin)</button>
+                  <button type="button" class="btn btn-sm btn-secondary" style="font-size: 0.73rem; text-align: left; padding: 6px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" onclick="triggerScenario('cvat')">⚙️ Kẹt lỗi CVAT / OPA (4 tin)</button>
+                  <button type="button" class="btn btn-sm btn-secondary" style="font-size: 0.73rem; text-align: left; padding: 6px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" onclick="triggerScenario('echo')">⚡ Thử hỏi lại câu đã giải thích</button>
+                  <button type="button" class="btn btn-sm btn-secondary" style="font-size: 0.73rem; text-align: left; padding: 6px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" onclick="triggerScenario('edges')">🛡️ Bắn Prompt Injection &amp; Rác</button>
+                </div>
+              </div>
             </div>
 
             <!-- Live Stream Feed -->

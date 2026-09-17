@@ -286,12 +286,55 @@ Chỉ trả về định dạng JSON thuần túy (không kèm giải thích hay
   }
   
   // REST API: Reset live session state
+  if (req.method === 'GET' && pathname === '/api/session/state') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(getSessionSnapshot()));
+    return;
+  }
+
+  // Start a brand-new workshop session. Starting a session is also the
+  // authoritative place where all FAQ/question state is cleared.
+  if (req.method === 'POST' && pathname === '/api/session/start') {
+    const session = startNewSession();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, session }));
+    return;
+  }
+
+  // Students use this endpoint before entering the simulated Zoom room.
+  if (req.method === 'POST' && pathname === '/api/session/join') {
+    if (!sessionState.isOpen) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: false,
+        code: 'MEETING_NOT_STARTED',
+        message: 'Giảng viên chưa mở lớp. Vui lòng quay lại khi cuộc họp bắt đầu.'
+      }));
+      return;
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, session: getSessionSnapshot() }));
+    return;
+  }
+
   if (req.method === 'POST' && pathname === '/api/reset-session') {
     activeFaqs = [];
     sessionQuestionsCount = 0;
+    sessionState = {
+      isOpen: false,
+      sessionId: createSessionId(),
+      startedAt: null
+    };
+    syncClientSessionIds();
     broadcastToRole('all', {
       type: 'faqs_refreshed',
       faqs: []
+    });
+    broadcastToRole('all', {
+      type: 'session_ended',
+      session: getSessionSnapshot(),
+      message: 'Phiên học đã được làm sạch.'
     });
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, message: 'Session reset successfully' }));
@@ -406,6 +449,47 @@ const DEFAULT_WORKSHOP_FAQS = [
 
 let activeFaqs = [...DEFAULT_WORKSHOP_FAQS];
 let sessionQuestionsCount = 0;
+let sessionState = {
+  isOpen: false,
+  sessionId: createSessionId(),
+  startedAt: null
+};
+
+function createSessionId() {
+  return `SESSION_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
+}
+
+function getSessionSnapshot() {
+  return { ...sessionState };
+}
+
+function syncClientSessionIds() {
+  for (const info of clients.values()) {
+    info.sessionId = sessionState.sessionId;
+  }
+}
+
+function startNewSession() {
+  activeFaqs = [];
+  sessionQuestionsCount = 0;
+  sessionState = {
+    isOpen: true,
+    sessionId: createSessionId(),
+    startedAt: new Date().toISOString()
+  };
+  syncClientSessionIds();
+
+  broadcastToRole('all', {
+    type: 'session_started',
+    session: getSessionSnapshot()
+  });
+  broadcastToRole('all', {
+    type: 'faqs_refreshed',
+    faqs: []
+  });
+
+  return getSessionSnapshot();
+}
 
 wss.on('connection', (ws) => {
   const clientId = `USER_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
@@ -429,66 +513,133 @@ wss.on('connection', (ws) => {
   ws.send(JSON.stringify({
     type: 'connected',
     clientId: clientId,
-    activeFaqs: activeFaqs
+    activeFaqs: activeFaqs,
+    session: getSessionSnapshot()
   }));
 });
 
+const genericStopwords = ["lỗi", "em", "thầy", "cho", "hỏi", "bị", "là", "sao", "thế", "nào", "ạ", "với", "trong", "bài", "ở", "kết nối", "thực hành", "cài đặt", "hướng dẫn", "giúp em", "giải thích", "câu hỏi", "vấn đề", "thực hiện", "phần này"];
+
+function normalizeSearchText(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function inferQuestionIntent(value) {
+  const text = normalizeSearchText(value);
+  if (/deadline|han nop|nop (muon|tre)|gia han|tru diem/.test(text)) return 'submission_deadline';
+  if (/hoc gi|noi dung|chu de|agenda|chuong trinh|kien thuc.*hom nay/.test(text)) return 'session_agenda';
+  if (/ket thuc|tan hoc|hoc den|may gio (xong|nghi)|bao gio (xong|nghi)/.test(text)) return 'session_end_time';
+  if (/diem danh|quet qr|myvinuni|ten zoom|dat ten/.test(text)) return 'attendance';
+  if (/ghep doi|lap team|lap nhom|dong doi|thanh vien/.test(text)) return 'team_formation';
+  if (/diem xp|\/rank|xep hang|thu hang/.test(text)) return 'xp_ranking';
+  if (/(cvat|opa|docker).*(loi|error|500|port|health|migration)|(loi|error|500|port).*(cvat|opa|docker)/.test(text)) return 'technical_setup';
+  return null;
+}
+
+function meaningfulQuestionTokens(value) {
+  const stopwords = new Set([
+    'ai', 'anh', 'bai', 'ban', 'buoi', 'cac', 'cho', 'co', 'cua', 'de', 'duoc',
+    'em', 'gi', 'hom', 'hoi', 'hoc', 'la', 'lam', 'luc', 'may', 'minh', 'nao',
+    'nay', 'o', 'phan', 'sao', 'thay', 'the', 'thi', 'trong', 'va', 've', 'voi'
+  ]);
+  return normalizeSearchText(value).split(' ').filter(token => token.length >= 2 && !stopwords.has(token));
+}
+
+function scoreFaqMatch(text, faq) {
+  const normalizedText = normalizeSearchText(text);
+  const questionTokens = new Set(normalizedText.split(' ').filter(Boolean));
+  const terms = Array.isArray(faq.keywords) ? faq.keywords : [];
+  const title = faq.canonicalQuestion || faq.originalClusterTitle || faq.title || '';
+  const normalizedTitle = normalizeSearchText(title);
+  const titleTokens = new Set(normalizedTitle.split(' ').filter(Boolean));
+  const incomingIntent = inferQuestionIntent(text);
+  const faqIntent = inferQuestionIntent([title, ...terms].join(' '));
+
+  if (normalizedText.length >= 12 && (
+    normalizedText === normalizedTitle ||
+    normalizedTitle.endsWith(normalizedText) ||
+    normalizedText.endsWith(normalizedTitle)
+  )) return 100;
+
+  if (incomingIntent && faqIntent && incomingIntent !== faqIntent) return 0;
+
+  let score = 0;
+  let exactHits = 0;
+  let distinctiveHit = false;
+
+  const domainSignatures = [
+    { pattern: /(cuda|oom|out of memory|tràn ram|tran ram|hết ram|het ram|vram|gpu colab)/i, id: "FAQ_CUDA_OOM" },
+    { pattern: /(docker|port|cổng|cong|8080|3000|already in use|allocated|xung đột|xung dot)/i, id: "FAQ_DOCKER_PORT" },
+    { pattern: /(cvat|opa|bước 3|buoc 3|step 3|healthcheck|500|gán nhãn|gan nhan|annotation)/i, id: "FAQ_CVAT_STEP3" },
+    { pattern: /(disconnect|ngắt kết nối|ngat ket noi|rớt mạng|rot mang|colab treo|timeout)/i, id: "FAQ_COLAB_DISCONNECT" },
+    { pattern: /(tên zoom|ten zoom|đổi tên|doi ten|cú pháp|cu phap|điểm danh|diem danh|myvinuni)/i, id: "FAQ_ZOOM_ATTENDANCE" }
+  ];
+  for (const sig of domainSignatures) {
+    if (sig.pattern.test(text)) {
+      if (faq.id === sig.id || terms.some(k => sig.pattern.test(k)) || sig.pattern.test(title)) {
+        score += 10;
+        distinctiveHit = true;
+        exactHits += 2;
+      }
+    }
+  }
+
+  for (const term of [...terms, title]) {
+    const normalizedTerm = normalizeSearchText(term);
+    if (!normalizedTerm || normalizedTerm.length < 2) continue;
+
+    if (normalizedText.includes(normalizedTerm)) {
+      exactHits++;
+      const words = normalizedTerm.split(' ').filter(Boolean);
+      score += words.length > 1 ? 1.5 : 1;
+      if (!genericStopwords.includes(String(term).toLowerCase().trim()) && normalizedTerm.length >= 4) {
+        distinctiveHit = true;
+      }
+    }
+  }
+
+  let titleOverlap = 0;
+  for (const token of questionTokens) {
+    if (token.length >= 2 && titleTokens.has(token)) titleOverlap++;
+  }
+  score += Math.min(titleOverlap, 3) * 0.5;
+
+  const meaningfulTitleTokens = new Set(meaningfulQuestionTokens(title));
+  const meaningfulOverlap = meaningfulQuestionTokens(text).filter(token => meaningfulTitleTokens.has(token)).length;
+  if (incomingIntent && faqIntent && incomingIntent === faqIntent && meaningfulOverlap >= 1) {
+    score += 3;
+    distinctiveHit = true;
+  } else if (meaningfulOverlap >= 2) {
+    score += 2.5;
+    distinctiveHit = true;
+  }
+
+  if (exactHits >= 2 && distinctiveHit) return score + 1;
+  if (exactHits >= 1 && titleOverlap >= 2 && distinctiveHit) return score + 0.5;
+  return score >= 10 ? score : 0;
+}
+
 function matchWithServerFaqs(text) {
   if (!text || activeFaqs.length === 0) return null;
-  const clean = text.toLowerCase().trim();
-  if (clean.length < 2) return null;
-
-  const stopwords = new Set([
-    "thầy", "thay", "ơi", "oi", "cho", "em", "hỏi", "hoi", "với", "voi", "ạ", "a",
-    "là", "la", "gì", "gi", "thế", "the", "nào", "nao", "sao", "bị", "bi", "trong",
-    "khi", "lúc", "luc", "làm", "lam", "cách", "cach", "hướng", "dẫn", "bài", "bai",
-    "tập", "tap", "ở", "o", "của", "cua", "và", "va", "được", "duoc", "không", "khong"
-  ]);
-
-  const tokens = clean.split(/[\s,.\?!;:()\[\]{}"'\\\/]+/).filter(w => w.length >= 2 && !stopwords.has(w));
-
   let bestFaq = null;
-  let maxScore = 0;
+  let bestScore = 0;
 
   for (const faq of activeFaqs) {
-    let score = 0;
-    const title = (faq.canonicalQuestion || faq.title || '').toLowerCase();
-    const keywords = (faq.keywords || []).map(k => k.toLowerCase().trim());
-
-    if (title.includes(clean)) score += 15;
-    else if (clean.includes(title)) score += 12;
-
-    const domainSignatures = [
-      { pattern: /(cuda|oom|out of memory|tràn ram|tran ram|hết ram|het ram|vram|gpu colab)/i, id: "FAQ_CUDA_OOM" },
-      { pattern: /(docker|port|cổng|cong|8080|3000|already in use|allocated|xung đột|xung dot)/i, id: "FAQ_DOCKER_PORT" },
-      { pattern: /(cvat|opa|bước 3|buoc 3|step 3|healthcheck|500|gán nhãn|gan nhan|annotation)/i, id: "FAQ_CVAT_STEP3" },
-      { pattern: /(disconnect|ngắt kết nối|ngat ket noi|rớt mạng|rot mang|colab treo|timeout)/i, id: "FAQ_COLAB_DISCONNECT" },
-      { pattern: /(tên zoom|ten zoom|đổi tên|doi ten|cú pháp|cu phap|điểm danh|diem danh|myvinuni)/i, id: "FAQ_ZOOM_ATTENDANCE" }
-    ];
-
-    for (const sig of domainSignatures) {
-      if (sig.pattern.test(clean)) {
-        if (faq.id === sig.id || keywords.some(k => sig.pattern.test(k)) || sig.pattern.test(title)) {
-          score += 10;
-        }
-      }
-    }
-
-    for (const token of tokens) {
-      if (title.includes(token)) score += 3.5;
-      for (const kw of keywords) {
-        if (kw === token) score += 4.0;
-        else if (kw.includes(token) || token.includes(kw)) score += 2.0;
-      }
-    }
-
-    if (score > maxScore) {
-      maxScore = score;
+    const score = scoreFaqMatch(text, faq);
+    if (score > bestScore) {
+      bestScore = score;
       bestFaq = faq;
     }
   }
 
-  return maxScore >= 4.0 ? bestFaq : null;
+  return bestScore >= 2.5 ? bestFaq : null;
 }
 
 function handleWebSocketMessage(ws, msg) {
@@ -499,15 +650,44 @@ function handleWebSocketMessage(ws, msg) {
     case 'register_role':
       client.role = msg.role; // 'lecturer' or 'student'
       client.name = msg.name || (client.role === 'student' ? `S${Math.floor(1000 + Math.random() * 9000)}` : 'Giảng viên');
+      client.sessionId = sessionState.sessionId;
       broadcastStudentCount();
+      if (client.role === 'student' && !sessionState.isOpen) {
+        ws.send(JSON.stringify({
+          type: 'meeting_not_started',
+          session: getSessionSnapshot(),
+          message: 'Giảng viên chưa mở lớp. Đây là thông báo mô phỏng của Zoom.'
+        }));
+      }
       break;
 
     case 'student_submit_question':
+      if (!sessionState.isOpen) {
+        ws.send(JSON.stringify({
+          type: 'meeting_not_started',
+          session: getSessionSnapshot(),
+          message: 'Lớp chưa mở nên câu hỏi chưa được gửi.'
+        }));
+        break;
+      }
+
+      if (client.sessionId && client.sessionId !== sessionState.sessionId) {
+        ws.send(JSON.stringify({
+          type: 'session_stale',
+          session: getSessionSnapshot(),
+          message: 'Phiên học đã thay đổi. Vui lòng tải lại trang để vào phiên mới.'
+        }));
+        break;
+      }
+
+      const content = typeof msg.content === 'string' ? msg.content.trim() : '';
+      if (!content) break;
+
       sessionQuestionsCount++;
       const questionPayload = {
         id: `M${1000 + sessionQuestionsCount}`,
         user: client.name || msg.author || 'Học viên ẩn danh',
-        content: msg.content.trim(),
+        content: content,
         timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
         clientId: client.id
       };
@@ -515,6 +695,7 @@ function handleWebSocketMessage(ws, msg) {
       // Server-side Instant Echo matching against active FAQs
       const matchedFaq = matchWithServerFaqs(questionPayload.content);
       if (matchedFaq) {
+        matchedFaq.servedStudentsCount = (matchedFaq.servedStudentsCount || 0) + 1;
         // Send instant echo reply directly to this student
         ws.send(JSON.stringify({
           type: 'instant_echo_reply',
@@ -524,9 +705,17 @@ function handleWebSocketMessage(ws, msg) {
           faqTitle: matchedFaq.canonicalQuestion
         }));
 
-        matchedFaq.servedStudentsCount = (matchedFaq.servedStudentsCount || 0) + 1;
+        // The lecturer still receives every question in realtime. The match
+        // metadata lets the dashboard show it as auto-resolved without
+        // creating a duplicate unanswered cluster.
+        broadcastToRole('lecturer', {
+          type: 'new_student_question',
+          question: questionPayload,
+          isEcho: true,
+          matchedFaq: matchedFaq
+        });
 
-        // Notify lecturers that an echo was shielded
+        // Keep a separate event for compact host-cockpit metrics.
         broadcastToRole('lecturer', {
           type: 'echo_resolved_event',
           question: questionPayload,
@@ -536,7 +725,8 @@ function handleWebSocketMessage(ws, msg) {
         // Broadcast to all lecturers for live clustering
         broadcastToRole('lecturer', {
           type: 'new_student_question',
-          question: questionPayload
+          question: questionPayload,
+          isEcho: false
         });
       }
 
@@ -562,9 +752,8 @@ function handleWebSocketMessage(ws, msg) {
 
     case 'send_echo_reply_to_student':
       // Lecturer AI detected an echo inquiry and sends instant answer to that student
-      broadcastToRole('student', {
+      sendToClient(msg.targetClientId, {
         type: 'instant_echo_reply',
-        targetClientId: msg.targetClientId,
         studentMsg: msg.studentMsg,
         answer: msg.answer,
         resolvedAt: msg.resolvedAt,
@@ -591,6 +780,16 @@ function broadcastToRole(role, payload) {
       ws.send(str);
     }
   }
+}
+
+function sendToClient(clientId, payload) {
+  for (const [ws, info] of clients.entries()) {
+    if (info.id === clientId && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(payload));
+      return true;
+    }
+  }
+  return false;
 }
 
 function broadcastStudentCount() {

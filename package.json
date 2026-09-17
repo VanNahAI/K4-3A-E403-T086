@@ -7,6 +7,8 @@
     "start": "node server.js",
     "test": "node ai-core/eval/run_eval.js",
     "test:e2e": "node ai-core/eval/test_realtime_e2e.js",
+    "test:realtime": "node ai-core/eval/test_realtime_e2e.js",
+    "test:clustering": "node ai-core/eval/test_clustering_regressions.js",
     "test:llm": "node ai-core/test_llm.js",
     "test:cp3": "node ai-core/eval/run_cp3_eval.js",
     "demo:30s": "node scripts/simulate_cp3_30s.js"

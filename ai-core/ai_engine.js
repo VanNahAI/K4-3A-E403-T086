@@ -53,6 +53,109 @@ const KNOWLEDGE_BASE = [
   }
 ];
 
+const LOCAL_CLUSTER_MATCH_THRESHOLD = 3;
+const SEMANTIC_STOPWORDS = new Set([
+  "ai", "anh", "ba", "bai", "ban", "buoi", "cac", "cho", "chu", "co", "cua",
+  "de", "duoc", "em", "gi", "hom", "hoi", "hoc", "la", "lam", "luc", "may",
+  "minh", "mot", "nao", "nay", "nhung", "o", "phan", "sao", "thay", "the",
+  "thi", "trong", "va", "ve", "voi"
+]);
+const GENERIC_ENTITY_TERMS = new Set([
+  "lab", "lab 2", "lab2", "zoom", "workshop", "bai", "thuc hanh", "cvat", "docker"
+]);
+
+function normalizeSemanticText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function inferQuestionIntent(value) {
+  const text = normalizeSemanticText(value);
+  if (/deadline|han nop|nop (muon|tre)|gia han|tru diem/.test(text)) return "submission_deadline";
+  if (/hoc gi|noi dung|chu de|agenda|chuong trinh|kien thuc.*hom nay/.test(text)) return "session_agenda";
+  if (/ket thuc|tan hoc|hoc den|may gio (xong|nghi)|bao gio (xong|nghi)/.test(text)) return "session_end_time";
+  if (/diem danh|quet qr|myvinuni|ten zoom|dat ten/.test(text)) return "attendance";
+  if (/ghep doi|lap team|lap nhom|dong doi|thanh vien/.test(text)) return "team_formation";
+  if (/diem xp|\/rank|xep hang|thu hang/.test(text)) return "xp_ranking";
+  if (/(cvat|opa|docker).*(loi|error|500|port|health|migration)|(loi|error|500|port).*(cvat|opa|docker)/.test(text)) {
+    return "technical_setup";
+  }
+  return null;
+}
+
+function meaningfulSemanticTokens(value) {
+  return normalizeSemanticText(value)
+    .split(" ")
+    .filter(token => token.length >= 2 && !SEMANTIC_STOPWORDS.has(token));
+}
+
+function clusterSearchText(cluster) {
+  const firstQuote = cluster && Array.isArray(cluster.quotes) && cluster.quotes[0]
+    ? cluster.quotes[0].content
+    : "";
+  return [
+    cluster && cluster.title,
+    cluster && Array.isArray(cluster.keywords) ? cluster.keywords.join(" ") : "",
+    firstQuote
+  ].filter(Boolean).join(" ");
+}
+
+function scoreExistingClusterMatch(text, cluster) {
+  const normalizedText = normalizeSemanticText(text);
+  const quotes = Array.isArray(cluster.quotes) ? cluster.quotes : [];
+
+  // Exact repeats must always stay in the same topic.
+  if (quotes.some(quote => normalizeSemanticText(quote.content) === normalizedText)) return 100;
+
+  const incomingIntent = inferQuestionIntent(text);
+  const clusterIntent = inferQuestionIntent(clusterSearchText(cluster));
+  if (incomingIntent && clusterIntent && incomingIntent !== clusterIntent) return 0;
+
+  let score = incomingIntent && clusterIntent && incomingIntent === clusterIntent ? 4 : 0;
+  const incomingTokens = new Set(meaningfulSemanticTokens(text));
+  const clusterTokens = new Set(meaningfulSemanticTokens(clusterSearchText(cluster)));
+  let overlap = 0;
+  for (const token of incomingTokens) {
+    if (clusterTokens.has(token)) overlap++;
+  }
+  score += Math.min(overlap, 4) * 1.2;
+
+  for (const keyword of cluster.keywords || []) {
+    const normalizedKeyword = normalizeSemanticText(keyword);
+    if (!normalizedKeyword || GENERIC_ENTITY_TERMS.has(normalizedKeyword)) continue;
+    if (normalizedText.includes(normalizedKeyword)) {
+      score += normalizedKeyword.includes(" ") ? 2 : 1.5;
+    }
+  }
+
+  return score;
+}
+
+function scoreKnowledgeBaseMatch(text, knowledgeItem) {
+  const normalizedText = normalizeSemanticText(text);
+  let score = 0;
+  for (const keyword of knowledgeItem.keywords || []) {
+    const normalizedKeyword = normalizeSemanticText(keyword);
+    if (!normalizedKeyword || !normalizedText.includes(normalizedKeyword)) continue;
+    if (GENERIC_ENTITY_TERMS.has(normalizedKeyword)) {
+      score += 0.5;
+    } else if (normalizedKeyword.includes(" ") || /^[0-9]{3,}$/.test(normalizedKeyword)) {
+      score += 2.5;
+    } else if (normalizedKeyword.length >= 5) {
+      score += 2;
+    } else {
+      score += 1;
+    }
+  }
+  return score;
+}
+
 class UnifiedAIEngine {
   constructor() {
     // OpenRouter / Model Config
@@ -218,7 +321,11 @@ class UnifiedAIEngine {
     if (clean.length < 5) clean = rawText.trim();
     clean = clean.charAt(0).toUpperCase() + clean.slice(1);
 
-    const stopwords = ["lỗi", "em", "thầy", "cho", "hỏi", "bị", "là", "sao", "thế", "nào", "ạ", "với", "trong", "bài", "ở", "của", "và", "được", "không"];
+    const stopwords = [
+      "lỗi", "em", "thầy", "cho", "hỏi", "bị", "là", "sao", "thế", "nào", "ạ",
+      "với", "trong", "bài", "ở", "của", "và", "được", "không", "hôm", "nay",
+      "buổi", "học", "gì", "lúc", "mấy"
+    ];
     const words = clean.toLowerCase().split(/[,\.\?\!\s\(\)\:\;]+/).filter(w => w.length >= 3 && !stopwords.includes(w));
     const keywords = Array.from(new Set(words)).slice(0, 6);
 
@@ -285,7 +392,8 @@ ${clustersSummary || "(Chưa có nhóm nào)"}
 Yêu cầu:
 1. Nếu câu hỏi có cùng bản chất ngữ nghĩa với 1 nhóm có sẵn, trả về "matchedClusterId".
 2. Nếu là chủ đề mới, hãy tạo "suggestedTitle" (dưới 10 từ, chuẩn hóa tiếng Việt, nêu rõ bản chất vấn đề) và trích xuất 3-5 "keywords".
-3. Toàn bộ "suggestedTitle" và các từ khóa "keywords" BẮT BUỘC 100% viết bằng Tiếng Việt chuẩn (tuyệt đối không dùng tiếng Trung hay tiếng khác).
+3. Không được gom nhóm chỉ vì trùng các từ chung như "hôm nay", "buổi học", "Lab 02". Ví dụ "hôm nay học gì" và "hôm nay kết thúc lúc mấy giờ" là hai ý định khác nhau.
+4. Toàn bộ "suggestedTitle" và các từ khóa "keywords" BẮT BUỘC 100% viết bằng Tiếng Việt chuẩn (tuyệt đối không dùng tiếng Trung hay tiếng khác).
 
 Chỉ trả về định dạng JSON thuần túy (không kèm giải thích hay markdown backticks):
 {
@@ -424,7 +532,6 @@ Chỉ trả về định dạng JSON thuần túy (không kèm giải thích hay
     // 1. Attempt LLM analysis if provider active
     this.isLiveLLM = false;
     const llmResult = await this.analyzeWithLLM(rawText, this.clusters);
-
     const modelBadge = this.isLiveLLM
       ? `OpenRouter (${(this.lastModelUsed || this.openRouterModel).split('/')[1] || 'Live LLM'})`
       : `AI Engine (Semantic NLP)`;
@@ -440,7 +547,9 @@ Chỉ trả về định dạng JSON thuần túy (không kèm giải thích hay
       if (!cl && targetId) {
         cl = this.clusters.find(c => String(c.id).includes(targetId) || targetId.includes(String(c.id)));
       }
-      if (cl) {
+      const incomingIntent = inferQuestionIntent(rawText);
+      const existingIntent = cl ? inferQuestionIntent(clusterSearchText(cl)) : null;
+      if (cl && !(incomingIntent && existingIntent && incomingIntent !== existingIntent)) {
         matchedCluster = cl;
         maxScore = 10;
       }
@@ -449,28 +558,18 @@ Chỉ trả về định dạng JSON thuần túy (không kèm giải thích hay
     // 2. If no LLM match, perform local semantic matching
     if (!matchedCluster) {
       for (const cl of this.clusters) {
-        let score = 0;
-        const titleWords = cl.title.toLowerCase().split(/\s+/);
-        titleWords.forEach(w => {
-          if (w.length > 2 && lower.includes(w)) score += 1.2;
-        });
-        if (cl.keywords) {
-          cl.keywords.forEach(kw => {
-            if (lower.includes(kw.toLowerCase())) score += 1.5;
-          });
-        }
+        const score = scoreExistingClusterMatch(rawText, cl);
         if (score > maxScore) {
           maxScore = score;
           matchedCluster = cl;
         }
       }
 
-      if (maxScore < 2) {
+      if (maxScore < LOCAL_CLUSTER_MATCH_THRESHOLD) {
+        matchedCluster = null;
+        maxScore = 0;
         for (const kb of KNOWLEDGE_BASE) {
-          let score = 0;
-          for (const kw of kb.keywords) {
-            if (lower.includes(kw)) score += 1;
-          }
+          const score = scoreKnowledgeBaseMatch(rawText, kb);
           if (score > maxScore) {
             maxScore = score;
             matchedCluster = kb;
@@ -479,7 +578,7 @@ Chỉ trả về định dạng JSON thuần túy (không kèm giải thích hay
       }
     }
 
-    if (matchedCluster && maxScore >= 1) {
+    if (matchedCluster && maxScore >= LOCAL_CLUSTER_MATCH_THRESHOLD) {
       let existing = this.clusters.find(c => c.clusterId === (matchedCluster.clusterId || matchedCluster.id) || c.id === matchedCluster.id);
       if (existing) {
         existing.count += 1;
@@ -528,8 +627,8 @@ Chỉ trả về định dạng JSON thuần túy (không kèm giải thích hay
     }
 
     const dynamicCluster = {
-      id: `cluster_${Date.now()}`,
-      clusterId: `custom_${Date.now()}`,
+      id: `cluster_${Date.now()}_${this.messageIdCounter}`,
+      clusterId: `custom_${Date.now()}_${this.messageIdCounter}`,
       title: clusterTitle,
       keywords: clusterKeywords,
       count: 1,
@@ -555,6 +654,22 @@ Chỉ trả về định dạng JSON thuần túy (không kèm giải thích hay
     let maxMatch = 0;
 
     for (const faq of this.resolvedFaqs) {
+      const faqText = [faq.canonicalQuestion, faq.originalClusterTitle, ...(faq.keywords || [])]
+        .filter(Boolean)
+        .join(" ");
+      const normalizedIncoming = normalizeSemanticText(lowerText);
+      const normalizedQuestion = normalizeSemanticText(faq.canonicalQuestion || faq.originalClusterTitle);
+      const incomingIntent = inferQuestionIntent(lowerText);
+      const faqIntent = inferQuestionIntent(faqText);
+
+      if (normalizedIncoming.length >= 12 && (
+        normalizedIncoming === normalizedQuestion ||
+        normalizedQuestion.endsWith(normalizedIncoming) ||
+        normalizedIncoming.endsWith(normalizedQuestion)
+      )) return faq;
+
+      if (incomingIntent && faqIntent && incomingIntent !== faqIntent) continue;
+
       let hits = 0;
       for (const kw of faq.keywords) {
         if (lowerText.includes(kw.toLowerCase())) {
@@ -563,6 +678,14 @@ Chỉ trả về định dạng JSON thuần túy (không kèm giải thích hay
       }
       if (hits > maxMatch) {
         maxMatch = hits;
+        bestFaq = faq;
+      }
+
+      const faqTokens = new Set(meaningfulSemanticTokens(faqText));
+      const overlap = meaningfulSemanticTokens(lowerText).filter(token => faqTokens.has(token)).length;
+      const semanticScore = overlap + (incomingIntent && faqIntent && incomingIntent === faqIntent ? 2 : 0);
+      if (semanticScore > maxMatch) {
+        maxMatch = semanticScore;
         bestFaq = faq;
       }
     }
@@ -701,8 +824,8 @@ Hãy trích xuất thành 1 cặp FAQ ngắn gọn, chuẩn xác. Trả về đ�
     cluster.count = remainingQuotes.length;
 
     const newCluster = {
-      id: `cluster_split_${Date.now()}`,
-      clusterId: `split_${Date.now()}`,
+      id: `cluster_split_${Date.now()}_${this.messageIdCounter}`,
+      clusterId: `split_${Date.now()}_${this.messageIdCounter}`,
       title: `Chủ đề tách: ${splitQuotes[0].content.substring(0, 45)}...`,
       count: splitQuotes.length,
       confidence: 0.88,

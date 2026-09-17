@@ -11,6 +11,8 @@ let isMicMuted = false;
 let isVideoStopped = false;
 let currentSlideIdx = 2; // Slide 3
 let isPiPMinimized = false;
+let roomAccessState = 'checking';
+let roomAccessPoll = null;
 
 const slidesData = [
   {
@@ -85,15 +87,80 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('video-tile-self').style.display = 'none';
   }
 
-  // Load PiP Companion into the embedded iframe
-  const pipSrc = `/pip?role=${encodeURIComponent(currentRole)}&name=${encodeURIComponent(currentName)}&id=${encodeURIComponent(currentId)}`;
-  document.getElementById('pip-companion-iframe').src = pipSrc;
-
-  // Make PiP draggable
-  makeDraggable(document.getElementById('pip-overlay'), document.getElementById('pip-drag-handle'));
-
-  renderCurrentSlide();
+  enterLocalMeeting(params);
 });
+
+async function enterLocalMeeting(params) {
+  try {
+    let response;
+    if (currentRole === 'lecturer') {
+      // The portal marks a deliberate "start a new meeting" action. The
+      // fallback also makes a direct /room?role=lecturer link usable.
+      if (params.get('newSession') === '1') {
+        response = await fetch('/api/session/start', { method: 'POST' });
+      } else {
+        const stateResponse = await fetch('/api/session/state');
+        const state = await stateResponse.json();
+        response = state.isOpen
+          ? stateResponse
+          : await fetch('/api/session/start', { method: 'POST' });
+      }
+    } else {
+      response = await fetch('/api/session/join', { method: 'POST' });
+    }
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      showMeetingClosed(error.message || 'Giảng viên chưa bắt đầu cuộc họp.');
+      return;
+    }
+
+    roomAccessState = 'open';
+    stopRoomAccessPolling();
+
+    // Load PiP Companion only after access is granted. This prevents a
+    // student from asking questions through the embedded panel while locked.
+    const pipSrc = `/pip?role=${encodeURIComponent(currentRole)}&name=${encodeURIComponent(currentName)}&id=${encodeURIComponent(currentId)}`;
+    document.getElementById('pip-companion-iframe').src = pipSrc;
+
+    makeDraggable(document.getElementById('pip-overlay'), document.getElementById('pip-drag-handle'));
+    renderCurrentSlide();
+  } catch (error) {
+    showMeetingClosed('Không thể kết nối tới phiên học thử nghiệm. Vui lòng thử lại.');
+  }
+}
+
+function showMeetingClosed(message) {
+  roomAccessState = 'closed';
+  document.getElementById('meeting-closed-message').textContent = message;
+  document.getElementById('meeting-closed-overlay').classList.remove('hidden');
+  document.querySelector('.zoom-app-container').classList.add('hidden');
+  startRoomAccessPolling();
+}
+
+function startRoomAccessPolling() {
+  stopRoomAccessPolling();
+  roomAccessPoll = setInterval(async () => {
+    if (roomAccessState !== 'closed' || currentRole !== 'student') return;
+    try {
+      const response = await fetch('/api/session/join', { method: 'POST' });
+      if (response.ok) window.location.reload();
+    } catch (error) {
+      // Keep the waiting-room message visible while the server is offline.
+    }
+  }, 3000);
+}
+
+function stopRoomAccessPolling() {
+  if (roomAccessPoll) {
+    clearInterval(roomAccessPoll);
+    roomAccessPoll = null;
+  }
+}
+
+function retryMeetingAccess() {
+  window.location.reload();
+}
 
 // Slide Controls
 function renderCurrentSlide() {
