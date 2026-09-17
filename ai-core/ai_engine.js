@@ -77,7 +77,7 @@ function normalizeSemanticText(value) {
 
 function inferQuestionIntent(value) {
   const text = normalizeSemanticText(value);
-  if (/deadline|han nop|nop (muon|tre)|gia han|tru diem/.test(text)) return "submission_deadline";
+  if (/deadline|han nop|\bnop (muon|tre)\b|gia han|tru diem/.test(text)) return "submission_deadline";
   if (/hoc gi|noi dung|chu de|agenda|chuong trinh|kien thuc.*hom nay/.test(text)) return "session_agenda";
   if (/ket thuc|tan hoc|hoc den|may gio (xong|nghi)|bao gio (xong|nghi)/.test(text)) return "session_end_time";
   if (/diem danh|quet qr|myvinuni|ten zoom|dat ten/.test(text)) return "attendance";
@@ -683,14 +683,16 @@ Chỉ trả về định dạng JSON thuần túy (không kèm giải thích hay
 
       const faqTokens = new Set(meaningfulSemanticTokens(faqText));
       const overlap = meaningfulSemanticTokens(lowerText).filter(token => faqTokens.has(token)).length;
-      const semanticScore = overlap + (incomingIntent && faqIntent && incomingIntent === faqIntent ? 2 : 0);
-      if (semanticScore > maxMatch) {
-        maxMatch = semanticScore;
-        bestFaq = faq;
+      if (incomingIntent && faqIntent && incomingIntent === faqIntent && overlap >= 1) {
+        const semanticScore = overlap + 3;
+        if (semanticScore > maxMatch) {
+          maxMatch = semanticScore;
+          bestFaq = faq;
+        }
       }
     }
 
-    if (maxMatch >= 2 || (maxMatch >= 1 && bestFaq.keywords.some(k => k.length > 5 && lowerText.includes(k)))) {
+    if (bestFaq && (maxMatch >= 2 || (maxMatch >= 1 && bestFaq.keywords && bestFaq.keywords.some(k => k.length > 5 && lowerText.includes(k))))) {
       return bestFaq;
     }
     return null;

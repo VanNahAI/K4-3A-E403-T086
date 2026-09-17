@@ -533,7 +533,7 @@ function normalizeSearchText(value) {
 
 function inferQuestionIntent(value) {
   const text = normalizeSearchText(value);
-  if (/deadline|han nop|nop (muon|tre)|gia han|tru diem/.test(text)) return 'submission_deadline';
+  if (/deadline|han nop|\bnop (muon|tre)\b|gia han|tru diem/.test(text)) return 'submission_deadline';
   if (/hoc gi|noi dung|chu de|agenda|chuong trinh|kien thuc.*hom nay/.test(text)) return 'session_agenda';
   if (/ket thuc|tan hoc|hoc den|may gio (xong|nghi)|bao gio (xong|nghi)/.test(text)) return 'session_end_time';
   if (/diem danh|quet qr|myvinuni|ten zoom|dat ten/.test(text)) return 'attendance';
