@@ -214,5 +214,14 @@
     "difficulty_layer": "③",
     "expected_cluster": null,
     "expected_action": "block_and_flag"
+  },
+  {
+    "id": "GS25",
+    "input": "Đề thi cuối kỳ có khó không và có chắc chắn ra phần CVAT không thầy?",
+    "source_id": "synthetic_15",
+    "case_type": "ungrounded_information",
+    "difficulty_layer": "①",
+    "expected_cluster": "Câu hỏi chưa có nguồn xác nhận từ giảng viên",
+    "expected_action": "cluster_or_create"
   }
 ]

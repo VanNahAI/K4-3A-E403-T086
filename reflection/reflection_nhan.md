@@ -7,8 +7,8 @@
 - **Vai trò chính:** Product Lead kiêm Điều phối tiến độ các mốc (CP1 $\rightarrow$ CP6).
 - **Phần việc cụ thể:**
   - Viết bản Canvas CP1 và hoàn thiện bản đặc tả `spec.md` (§1–§9) theo đúng chuẩn `03-ai-spec-template.md`.
-  - Trực tiếp khai phá dữ liệu từ `data/discord-pack/`, đếm 779 tin nhắn học viên để chứng minh 68.0% câu hỏi lặp lại (Evidence Standard B).
-  - Phỏng vấn $n=20$ học viên và 3 giảng viên/TA trong khoá theo phương pháp Mom Test (Evidence Standard A).
+  - Khai phá 779 tin nhắn người dùng trong `data/discord-pack/`, chuẩn hóa phép lọc tái lập và ghi nhận 133 tin thuộc 5 nhóm vận hành (Evidence Standard B).
+  - Tổng hợp khảo sát vấn đề ẩn danh $n=25$: 24/25 từng gặp câu hỏi trùng và 16/25 đánh giá bảng gom nhóm realtime hữu ích hoặc rất hữu ích; lưu đầy đủ tại `validation/problem_survey_log.md`.
   - Soạn kịch bản thuyết trình 6 slide (`demo_slides.md`) và điều phối buổi thử nghiệm người dùng (R6).
 
 ### 2. AI đã hỗ trợ như thế nào trong công việc

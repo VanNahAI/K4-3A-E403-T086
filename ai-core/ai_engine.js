@@ -61,7 +61,7 @@ const SEMANTIC_STOPWORDS = new Set([
   "thi", "trong", "va", "ve", "voi"
 ]);
 const GENERIC_ENTITY_TERMS = new Set([
-  "lab", "lab 2", "lab2", "zoom", "workshop", "bai", "thuc hanh", "cvat", "docker"
+  "lab", "lab 2", "lab 02", "lab2", "lab02", "zoom", "workshop", "bai", "thuc hanh", "cvat", "docker"
 ]);
 
 function normalizeSemanticText(value) {
@@ -77,7 +77,7 @@ function normalizeSemanticText(value) {
 
 function inferQuestionIntent(value) {
   const text = normalizeSemanticText(value);
-  if (/deadline|han nop|\bnop (muon|tre)\b|gia han|tru diem/.test(text)) return "submission_deadline";
+  if (/\b(deadline|han nop|gia han|tru diem)\b|\bnop (muon|tre)\b/.test(text)) return "submission_deadline";
   if (/hoc gi|noi dung|chu de|agenda|chuong trinh|kien thuc.*hom nay/.test(text)) return "session_agenda";
   if (/ket thuc|tan hoc|hoc den|may gio (xong|nghi)|bao gio (xong|nghi)/.test(text)) return "session_end_time";
   if (/diem danh|quet qr|myvinuni|ten zoom|dat ten/.test(text)) return "attendance";
@@ -87,6 +87,23 @@ function inferQuestionIntent(value) {
     return "technical_setup";
   }
   return null;
+}
+
+function isMultiIntentQuestion(value) {
+  const text = normalizeSemanticText(value);
+  const hasConnector = /\bva\b|\bdong thoi\b|\bben canh do\b/.test(text);
+  if (!hasConnector) return false;
+
+  const asksAboutLateSubmission = /han nop|deadline|nop muon|nop tre|tru diem/.test(text);
+  const asksAboutSubmissionLocation = /link|nop o dau|gui o dau|vlearn|dia chi/.test(text);
+  return asksAboutLateSubmission && asksAboutSubmissionLocation;
+}
+
+function isContextDependentFollowUp(value) {
+  const text = normalizeSemanticText(value);
+  const asksForReason = /^(sao|tai sao|vi sao|ly do|giai thich)/.test(text);
+  const referencesPenalty = /(tru|cong)\s+\d+\s*(%|phan tram)|\bbi tru\b|\blai tru\b/.test(text);
+  return asksForReason && referencesPenalty;
 }
 
 function meaningfulSemanticTokens(value) {
@@ -453,7 +470,8 @@ Chỉ trả về định dạng JSON thuần túy (không kèm giải thích hay
     const injectionPatterns = [
       "ignore all", "ignore previous", "delete all", "delete cluster",
       "system:", "drop table", "reply with hacked", "bỏ qua hướng dẫn",
-      "xóa tất cả", "chiếm quyền", "đóng vai hacker"
+      "xóa tất cả", "chiếm quyền", "đóng vai hacker",
+      "override lecturer answer"
     ];
     if (injectionPatterns.some(p => lower.includes(p))) {
       const item = {
@@ -485,6 +503,49 @@ Chỉ trả về định dạng JSON thuần túy (không kèm giải thích hay
     }
 
     // =========================================================================
+    // LAYER ② CHECK (MULTI-INTENT): Keep independent requests reviewable.
+    // A single cluster/FAQ answer must not hide a second request such as
+    // "quy chế trễ hạn" plus "link nộp bài ở đâu".
+    // =========================================================================
+    if (isMultiIntentQuestion(rawText)) {
+      const item = {
+        ...msgObj,
+        title: `Cần tách ý: "${rawText}"`,
+        reason: "Câu hỏi chứa nhiều ý độc lập, cần giảng viên tách và trả lời từng ý (Layer ②)",
+        category: "Multi-intent",
+        confidence: 0.62,
+        layer: "②"
+      };
+      this.reviewQueue.unshift(item);
+      return { type: "review", data: item };
+    }
+
+    // =========================================================================
+    // LAYER ② CHECK (PRIORITY): Ambiguous / Short / Lacking Context
+    // NOTE: Runs BEFORE echo-responder so short follow-up messages like
+    // "sao lại trừ 20% vậy ạ" go to review queue, not echo-replied.
+    // =========================================================================
+    if (
+      rawText.length < 12 ||
+      lower === "thầy ơi em chưa hiểu" ||
+      lower.includes("nói lại đi") ||
+      lower === "?" ||
+      lower === "hả" ||
+      lower === "chưa hiểu lắm ạ" ||
+      isContextDependentFollowUp(rawText)
+    ) {
+      const item = {
+        ...msgObj,
+        title: `Yêu cầu làm rõ: "${rawText}"`,
+        reason: "Câu hỏi thiếu ngữ cảnh cụ thể, cần người dạy làm rõ (Layer ②)",
+        confidence: 0.65,
+        layer: "②"
+      };
+      this.reviewQueue.unshift(item);
+      return { type: "review", data: item };
+    }
+
+    // =========================================================================
     // ECHO-RESPONDER: Match against Live Resolved Knowledge Cache (FAQ Ground Truth)
     // =========================================================================
     const matchedFaq = this.matchWithResolvedFaqs(lower);
@@ -499,28 +560,6 @@ Chỉ trả về định dạng JSON thuần túy (không kèm giải thích hay
       };
       this.echoResolved.unshift(echoItem);
       return { type: "echo_resolved", data: echoItem };
-    }
-
-    // =========================================================================
-    // LAYER ② CHECK: Ambiguous / Short / Lacking Context
-    // =========================================================================
-    if (
-      rawText.length < 12 || 
-      lower === "thầy ơi em chưa hiểu" || 
-      lower.includes("nói lại đi") || 
-      lower === "?" || 
-      lower === "hả" || 
-      lower === "chưa hiểu lắm ạ"
-    ) {
-      const item = {
-        ...msgObj,
-        title: `Yêu cầu làm rõ: "${rawText}"`,
-        reason: "Câu hỏi thiếu ngữ cảnh cụ thể, cần người dạy làm rõ (Layer ②)",
-        confidence: 0.65,
-        layer: "②"
-      };
-      this.reviewQueue.unshift(item);
-      return { type: "review", data: item };
     }
 
     // =========================================================================
@@ -645,57 +684,94 @@ Chỉ trả về định dạng JSON thuần túy (không kèm giải thích hay
   }
 
   /**
-   * Check if incoming message matches any resolved FAQ
+   * Check if incoming message matches any resolved FAQ.
+   *
+   * Exact repeats are answered immediately. Paraphrases need evidence from
+   * both the question intent and specific terms/phrases. Generic words such as
+   * "hôm nay", "Lab 02" or "nộp" alone must never be enough to echo an answer.
    */
   matchWithResolvedFaqs(lowerText) {
     if (this.resolvedFaqs.length === 0) return null;
 
+    // Very short / ambiguous messages should not trigger echo replies
+    if (lowerText.trim().length < 10) return null;
+
+    const normalizedIncoming = normalizeSemanticText(lowerText);
+    const incomingIntent = inferQuestionIntent(lowerText);
     let bestFaq = null;
-    let maxMatch = 0;
+    let maxScore = 0;
 
     for (const faq of this.resolvedFaqs) {
-      const faqText = [faq.canonicalQuestion, faq.originalClusterTitle, ...(faq.keywords || [])]
-        .filter(Boolean)
-        .join(" ");
-      const normalizedIncoming = normalizeSemanticText(lowerText);
-      const normalizedQuestion = normalizeSemanticText(faq.canonicalQuestion || faq.originalClusterTitle);
-      const incomingIntent = inferQuestionIntent(lowerText);
-      const faqIntent = inferQuestionIntent(faqText);
+      const normalizedQuestion = normalizeSemanticText(faq.canonicalQuestion || faq.originalClusterTitle || "");
+      const faqSearchText = [
+        faq.canonicalQuestion,
+        faq.originalClusterTitle,
+        ...(faq.keywords || [])
+      ].filter(Boolean).join(" ");
+      const faqIntent = inferQuestionIntent(faqSearchText);
 
+      // Do not echo an answer from a different intent, even when the wording
+      // shares broad terms like "hôm nay", "Lab 02" or "nộp".
+      if (incomingIntent && faqIntent && incomingIntent !== faqIntent) continue;
+
+      // High-confidence: near-exact match on canonical question text
       if (normalizedIncoming.length >= 12 && (
         normalizedIncoming === normalizedQuestion ||
         normalizedQuestion.endsWith(normalizedIncoming) ||
         normalizedIncoming.endsWith(normalizedQuestion)
       )) return faq;
 
-      if (incomingIntent && faqIntent && incomingIntent !== faqIntent) continue;
+      let score = incomingIntent && faqIntent && incomingIntent === faqIntent ? 3 : 0;
+      let specificPhraseHits = 0;
+      for (const kw of (faq.keywords || [])) {
+        const normalizedKeyword = normalizeSemanticText(kw);
+        if (!normalizedKeyword || GENERIC_ENTITY_TERMS.has(normalizedKeyword)) continue;
+        if (!normalizedIncoming.includes(normalizedKeyword)) continue;
 
-      let hits = 0;
-      for (const kw of faq.keywords) {
-        if (lowerText.includes(kw.toLowerCase())) {
-          hits += 1;
-        }
+        const keywordTokens = meaningfulSemanticTokens(normalizedKeyword)
+          .filter(token => !GENERIC_ENTITY_TERMS.has(token));
+        if (keywordTokens.length === 0) continue;
+
+        specificPhraseHits++;
+        score += keywordTokens.length > 1 ? 3 : 2;
       }
-      if (hits > maxMatch) {
-        maxMatch = hits;
+
+      const incomingTokens = new Set(
+        meaningfulSemanticTokens(normalizedIncoming)
+          .filter(token => !GENERIC_ENTITY_TERMS.has(token))
+      );
+      const faqTokens = new Set(
+        meaningfulSemanticTokens(faqSearchText)
+          .filter(token => !GENERIC_ENTITY_TERMS.has(token))
+      );
+      let tokenOverlap = 0;
+      for (const token of incomingTokens) {
+        if (faqTokens.has(token)) tokenOverlap++;
+      }
+      score += Math.min(tokenOverlap, 3);
+
+      const sharedLabEntity = ["lab 2", "lab 02", "lab2", "lab02"].some(entity =>
+        normalizedIncoming.includes(entity) && faqSearchText.toLowerCase().includes(entity)
+      );
+      const sameIntent = Boolean(
+        incomingIntent && faqIntent && incomingIntent === faqIntent
+      );
+
+      // Same intent plus one meaningful phrase is enough for a paraphrase;
+      // otherwise require at least two meaningful shared tokens. This keeps
+      // separate questions about agenda vs. end time from being merged.
+      const hasSemanticEvidence = specificPhraseHits > 0 || tokenOverlap >= 2 ||
+        (sameIntent && (tokenOverlap >= 1 || sharedLabEntity));
+      // A couple of broad shared tokens (for example "nộp" + "hạn") are
+      // insufficient. Require a combined intent/phrase/overlap score before
+      // delivering a cached answer.
+      if (hasSemanticEvidence && score >= 4 && score > maxScore) {
+        maxScore = score;
         bestFaq = faq;
       }
-
-      const faqTokens = new Set(meaningfulSemanticTokens(faqText));
-      const overlap = meaningfulSemanticTokens(lowerText).filter(token => faqTokens.has(token)).length;
-      if (incomingIntent && faqIntent && incomingIntent === faqIntent && overlap >= 1) {
-        const semanticScore = overlap + 3;
-        if (semanticScore > maxMatch) {
-          maxMatch = semanticScore;
-          bestFaq = faq;
-        }
-      }
     }
 
-    if (bestFaq && (maxMatch >= 2 || (maxMatch >= 1 && bestFaq.keywords && bestFaq.keywords.some(k => k.length > 5 && lowerText.includes(k))))) {
-      return bestFaq;
-    }
-    return null;
+    return bestFaq;
   }
 
   /**

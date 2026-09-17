@@ -13,9 +13,9 @@
 * **Core JTBD:** *"Khi đang điều phối buổi học trực tuyến đông người, người dạy muốn nhanh chóng nhận biết và giải đáp những thắc mắc phổ biến nhất của người học mà không làm gián đoạn nhịp truyền đạt."*
 
 ### 2. Nỗi đau được đo đếm bằng số liệu thật (Pain Numbers)
-* **530 / 779 tin nhắn (68.0%)** học viên gửi trên Discord K4 là các câu hỏi trùng lặp ý định nhưng phân mảnh câu chữ (76 tin hỏi deadline, 50 tin điểm danh Zoom/QR, 38 tin lỗi lab CVAT).
-* **17 / 20 học viên (85%)** khảo sát xác nhận câu hỏi của mình thường xuyên bị trôi mất trong chat.
-* **Hiện tượng "Echo Chamber":** Giảng viên vừa mất 3 phút giải thích xong, 5 phút sau học viên vào muộn lại tiếp tục hỏi lại đúng câu đó, gây gián đoạn nhịp giảng 4–6 lần mỗi buổi!
+* **133 / 779 tin nhắn (17,1%)** do người dùng gửi trong Discord K4 khớp ít nhất một trong 5 nhóm vận hành bằng phép lọc tái lập.
+* **24 / 25 người (96%)** trong khảo sát ẩn danh từng gặp câu hỏi trùng; **16 / 25 (64%)** gặp từ 3 lần/buổi trở lên.
+* Các khó khăn được chọn nhiều nhất: phải đọc lại nhiều tin (8/25), trả lời trùng nội dung (6/25) và bỏ sót câu hỏi (5/25).
 
 ---
 
@@ -26,11 +26,11 @@
 
 | Ứng viên bài toán | Quy mô | Tần suất | Thiệt hại mỗi lần | Khả thi | Quyết định |
 |---|---|---|---|:---:|:---:|
-| **Workshop Question Curator & Live Sync** | **350 học viên + 2 GV/TA** | **2 buổi/tuần** | **Mất 15-20' đọc chat, sót 30% vướng mắc, gián đoạn nhịp giảng** | **Rất cao** | **CHỌN** |
+| **Workshop Question Curator & Live Sync** | **Workshop có thể tới 350 học viên + GV/TA** | **24/25 từng gặp câu hỏi trùng** | **8/25 phải đọc lại nhiều tin; 5/25 gặp bỏ sót câu hỏi** | **Rất cao** | **CHỌN** |
 | Git Deadline Appeal Auditor | 40 học viên | 1 lần/tuần | Tốn 2-3h soi git log giải quyết khiếu nại | Cao | Loại (tần suất hẹp) |
 | XP & Attendance Anomaly Hunter | 80 học viên | 1 lần/tuần | Tốn 10'/học viên tra cứu DB bot | TB | Loại (hệ thống đóng) |
 
-* **Lý do chọn bằng số:** Tổng thời gian lãng phí lên tới **14.000 phút/tuần** trên toàn khoá học. Giải quyết bài toán này mang lại ROI tức thì ngay trong từng buổi học.
+* **Lý do chọn bằng số:** Vấn đề xuất hiện ở cả Discord pack (133/779 tin thuộc 5 nhóm vận hành) và khảo sát workshop (24/25 từng gặp câu hỏi trùng), đồng thời lát cắt có thể kiểm thử end-to-end trong thời gian Hackathon.
 
 ---
 
@@ -55,18 +55,20 @@
 
 ### 1. Đối chiếu Quality Bar đã cam kết từ CP4
 * **Quality Bar đã khóa:** Đạt $\ge 85\%$ tổng số test cases và $100\%$ chặn Prompt Injection.
-* **Kết quả đo lường Lượt 1 (Eval Run 1):**
-  * **21 / 24 cases ĐẠT (**87.5%**)** $\rightarrow$ **VƯỢT CHUẨN QUALITY BAR**.
-  * Chặn đứng **100% (4/4)** các đợt tấn công Injection & Spam (Lớp ③).
+* **Kết quả đo lường trọn bộ cập nhật CP4:**
+  * **25 / 25 cases ĐẠT (100%)** $\rightarrow$ **VƯỢT CHUẨN QUALITY BAR**.
+  * Chặn đúng **100% (2/2)** case Prompt Injection; toàn bộ 4/4 case Lớp ③ đạt.
 
-### 2. Phân tích Case thất bại đáng chú ý nhất
+### 2. Case khó đã phát hiện và sửa
 * **Case GS17 (Đa ý định):** *"Lab 2 nộp muộn bị trừ điểm thế nào và link nộp ở đâu ạ?"*
-* **Nguyên nhân:** Câu hỏi chứa 2 vế độc lập (về quy chế nộp muộn và link nộp bài). Hệ thống nhận diện từ khóa "nộp muộn" nên ưu tiên auto-reply vế 1 mà chưa tách được vế 2 sang hàng đợi riêng. Đã đưa vào backlog để cải tiến prompt phân tách vế câu.
+* **Lỗi lượt đầu:** Hệ thống ưu tiên vế “nộp muộn” và có nguy cơ che mất vế hỏi link. **Sửa tại CP4:** nhận diện liên từ và chuyển câu sang `Cần tách ý`; case hiện đã đạt trong Golden Set.
 
 ---
 
 ## SLIDE 5 · USER THẬT NÓI GÌ (45 giây)
 *Người trình bày: Chu Văn Nhân*
+
+> **DRAFT CP5:** Chỉ dùng các quote dưới đây trên slide sau khi người thử đã trực tiếp thao tác prototype và xác nhận lại câu nói nguyên văn.
 
 ### 1. Phản hồi thực tế từ người dùng ngoài nhóm (Mom Test)
 * **Trần Thu Phương (Học viên lớp 3A):**
