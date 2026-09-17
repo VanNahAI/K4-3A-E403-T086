@@ -18,9 +18,9 @@
    - *Mức tự động hóa:* **Conditional Automation** — Khi câu hỏi chưa được giải thích, AI chỉ gom cụm hỗ trợ (Augment). Khi Giảng viên giải thích xong, AI lấy đó làm Ground Truth để tự động trả lời cho các câu hỏi tương tự đến sau.
    - *Willing Users (≥2 người):* **Trần Thu Phương** (Học viên) và **Chu Minh Quân** (Học viên).
 7. **PHÂN CÔNG VAI TRÒ CỤ THỂ:**
-   - **Chu Văn Nhân (Leader - 2A202602668):** Product Lead — Spec, Evidence, Kịch bản kiểm thử, Pitch slide.
-   - **Nguyễn Khắc Quang (2A20260285):** Frontend — Dashboard UI, Web Speech API Voice Mirror, Realtime Stream Simulator.
-   - **Dương Dương (2A202602498):** AI Engineer & QA — Pipeline gom cụm ngữ nghĩa, tích hợp OpenRouter/Local Qwen2.5, Golden Set & Eval runner.
+   - **Chu Văn Nhân (Leader - 2A202602668):** AI Engineer & QA — Lõi AI gom cụm ngữ nghĩa (`ai-core`), tích hợp OpenRouter/Local Qwen2.5, Live LLM typing deflection verification, xây dựng Golden Set 25 cases & Eval runner.
+   - **Nguyễn Khắc Quang (2A20260285):** Frontend — Dashboard UI, Web Speech API Voice Mirror, Realtime Stream Simulator, Cháy chat radar.
+   - **Dương Dương (2A202602498):** Product Research — Khảo sát nỗi đau người dùng n=25, Canvas CP1, AI Spec §1–§9, khai phá bằng chứng Evidence B 133/779 tin Discord, kịch bản pitch slides.
 
 ---
 
@@ -178,9 +178,9 @@ Chọn **Workshop Question Curator** vì vấn đề xuất hiện ở cả hai 
 ## §8. Phân công & Kế hoạch
 
 ### 8.1 Phân công vai trò
-- **Chu Văn Nhân:** Phụ trách Spec, Bằng chứng, Kịch bản kiểm thử, Slide pitch 6 trang.
+- **Chu Văn Nhân:** Phụ trách Lõi AI (`ai-core`), tích hợp OpenRouter/Ollama Qwen2.5, Pipeline Echo-Responder, bộ lọc mâu thuẫn thời gian, Runner kiểm thử Golden Set & QA.
 - **Nguyễn Khắc Quang:** Phụ trách UI Dashboard, Web Speech API Voice Mirror, Tách nhóm HAX G9, Discord Export Modal.
-- **Dương Dương:** Phụ trách Tích hợp OpenRouter/Ollama Qwen2.5, Pipeline Echo-Responder, Cháy chat radar, Runner test Golden Set.
+- **Dương Dương:** Phụ trách Product Research, Spec, Bằng chứng khai phá chatlog (Evidence B), Khảo sát vấn đề ẩn danh, Slide pitch 6 trang.
 
 ### 8.2 Kế hoạch Validation với User thật (Bonus R6)
 - **Thời gian thực hiện:** Giờ giải lao trước CP5 (18/9).

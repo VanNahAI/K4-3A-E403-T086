@@ -6,7 +6,7 @@
 ---
 
 ## SLIDE 1 · USER & JOB (45 giây)
-*Người trình bày: Chu Văn Nhân (Product Lead)*
+*Người trình bày: Dương Dương (Product Research)*
 
 ### 1. Job Executor & Core JTBD
 * **Job Executor:** Giảng viên đứng lớp & Trợ giảng (TA) điều phối workshop Zoom trực tuyến đông người (~350 học viên).
@@ -20,7 +20,7 @@
 ---
 
 ## SLIDE 2 · VÌ SAO CHỌN TÍNH NĂNG NÀY (45 giây)
-*Người trình bày: Chu Văn Nhân*
+*Người trình bày: Dương Dương (Product Research)*
 
 ### 1. Bảng Impact so sánh 3 ứng viên
 
@@ -35,7 +35,7 @@
 ---
 
 ## SLIDE 3 · GIẢI PHÁP & DEMO LIVE (2 phút)
-*Người trình bày: Nguyễn Khắc Quang & Dương Dương*
+*Người trình bày: Nguyễn Khắc Quang & Chu Văn Nhân*
 
 ### 1. Lát cắt MỘT CÂU & Mức tự động hóa
 * **Lát cắt:** *"Một giảng viên · xử lý Q&A workshop đông người · AI gom cụm câu hỏi lặp và tự động trích xuất đáp án để giải đáp các thắc mắc tương tự đến sau · giảng viên không bị hỏi lặp và học viên nhận đáp án tức thì."*
@@ -51,7 +51,7 @@
 ---
 
 ## SLIDE 4 · KẾT QUẢ ĐO LƯỜNG (45 giây)
-*Người trình bày: Dương Dương (AI Engineer)*
+*Người trình bày: Chu Văn Nhân (AI Engineer & QA)*
 
 ### 1. Đối chiếu Quality Bar đã cam kết từ CP4
 * **Quality Bar đã khóa:** Đạt $\ge 85\%$ tổng số test cases và $100\%$ chặn Prompt Injection.
@@ -66,7 +66,7 @@
 ---
 
 ## SLIDE 5 · USER THẬT NÓI GÌ (45 giây)
-*Người trình bày: Chu Văn Nhân*
+*Người trình bày: Dương Dương (Product Research)*
 
 > **DRAFT CP5:** Chỉ dùng các quote dưới đây trên slide sau khi người thử đã trực tiếp thao tác prototype và xác nhận lại câu nói nguyên văn.
 

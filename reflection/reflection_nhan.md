@@ -1,20 +1,21 @@
-# Reflection Cá Nhân — Chu Văn Nhân (Product Lead)
+# Reflection Cá Nhân — Chu Văn Nhân (AI Engineer & QA)
 **Mã học viên:** 2A202602668 · **Lớp:** 3A · **Nhóm:** K4-3A-E403-Curator  
 
 ---
 
 ### 1. Vai trò & Phần việc trực tiếp đảm nhiệm
-- **Vai trò chính:** Product Lead kiêm Điều phối tiến độ các mốc (CP1 $\rightarrow$ CP6).
+- **Vai trò chính:** Đội trưởng kiêm AI Engineer & Quality Assurance Lead.
 - **Phần việc cụ thể:**
-  - Viết bản Canvas CP1 và hoàn thiện bản đặc tả `spec.md` (§1–§9) theo đúng chuẩn `03-ai-spec-template.md`.
-  - Khai phá 779 tin nhắn người dùng trong `data/discord-pack/`, chuẩn hóa phép lọc tái lập và ghi nhận 133 tin thuộc 5 nhóm vận hành (Evidence Standard B).
-  - Tổng hợp khảo sát vấn đề ẩn danh $n=25$: 24/25 từng gặp câu hỏi trùng và 16/25 đánh giá bảng gom nhóm realtime hữu ích hoặc rất hữu ích; lưu đầy đủ tại `validation/problem_survey_log.md`.
-  - Soạn kịch bản thuyết trình 6 slide (`demo_slides.md`) và điều phối buổi thử nghiệm người dùng (R6).
+  - Thiết kế và hoàn thiện module Lõi AI (`ai-core/ai_engine.js`): Kết nối linh hoạt Cloud LLM OpenRouter (`google/gemini-2.0-flash-exp:free`, `nex-agi/nex-n2.5-mini:free`) và Local Ollama Qwen2.5-3B.
+  - Trực tiếp xây dựng cơ chế thẩm định LLM thời gian thực khi học viên gõ phím (`/api/llm-verify-faq`) kết hợp bộ lọc chống mâu thuẫn thời gian (`hasSemanticConflict`) giúp ngăn chặn hoàn toàn lỗi ảo giác gợi ý nhầm nội dung buổi học khác ngày.
+  - Xây dựng và hoàn thiện bộ kiểm thử Golden Set 25 cases (`ai-core/eval/golden_set.json`), viết runner tự động hóa `run_eval.js` và bộ đo số liệu `run_cp3_eval.js`.
+  - Khắc phục triệt để các ca khó CP4: `GS17` (bóc tách câu hỏi đa ý định `split_intents`), `GS22` (câu nối tiếp thiếu ngữ cảnh đưa vào hàng đợi `flag_low_confidence`), `GS24` (chặn prompt injection can thiệp đáp án giảng viên), đưa kết quả đánh giá đạt tuyệt đối **25/25 (100.0%)**.
+  - Thiết lập bộ kiểm thử hồi quy WebSocket Realtime E2E đạt 8/8 tiêu chí đồng bộ thời gian thực.
 
 ### 2. AI đã hỗ trợ như thế nào trong công việc
-- Sử dụng LLM để hỗ trợ phân loại sơ bộ các nhóm intent từ file chatlog 1.092 dòng giúp tiết kiệm 4 giờ đọc tay.
-- Sử dụng AI để sinh các câu hỏi phản biện theo HAX Playbook nhằm phát hiện sớm các kịch bản rủi ro (đặc biệt là nguy cơ học viên vào muộn liên tục hỏi lại câu cũ).
+- Sử dụng LLM để tự động sinh các biến thể câu hỏi adversarial (prompt injection, jailbreak vào Lớp ③) nhằm kiểm tra tính vững chắc của các tầng Guardrail.
+- Ứng dụng mô hình suy luận để hỗ trợ viết nhanh các kịch bản kiểm thử hồi quy và bộ khung runner tự động trong Node.js.
 
 ### 3. Bài học từ Case Thất Bại của chính nhóm (Fail Case Lesson)
-- **Case thất bại:** Ở mốc CP1 ban đầu, nhóm cam kết Non-goal: *"AI tuyệt đối không trả lời học viên"*. Nhưng khi chạy thử nghiệm, nhóm nhận ra học viên hỏi lại đúng câu cũ rất nhiều. Việc cấm AI trả lời khiến giảng viên vẫn phải nói đi nói lại 1 câu.
-- **Bài học rút ra:** Không nên áp dụng tư duy nhị phân (hoàn toàn không trả lời vs hoàn toàn tự động). Giải pháp chuẩn mực là **Conditional Automation theo Cost-of-Error**: Khi chưa có căn cứ thì cấm AI bịa; nhưng khi giảng viên đã trả lời xong thì AI có thể dùng chính lời giảng viên làm Ground Truth để tự động trả lời cho các câu hỏi tương tự đến sau. Điều này biến tính năng Echo-Responder thành điểm sáng lớn nhất của dự án.
+- **Case thất bại:** Ở lượt đo đầu tiên, case `GS17` (*"Lab 2 nộp muộn bị trừ điểm thế nào và link nộp ở đâu ạ?"*) bị hệ thống ưu tiên vế nộp muộn nên kích hoạt trả lời tự động ngay, có nguy cơ bỏ sót hoàn toàn ý hỏi link nộp bài. Đồng thời, học viên hỏi bài ngày mai vẫn bị gợi ý bài hôm nay do trùng lặp từ khóa.
+- **Bài học rút ra:** Đa ý định (Multi-intent) và mâu thuẫn thời gian là hai cạm bẫy kinh điển trong AI hội thoại. Giải pháp là kết hợp **bộ lọc mâu thuẫn logic tức thì (0ms)** với **bộ thẩm định ngữ nghĩa bằng LLM**. Khi phát hiện câu hỏi chứa nhiều ý độc lập hoặc có dấu hiệu mâu thuẫn ngữ cảnh, hệ thống phải chuyển sang hàng đợi làm rõ (`Cần tách ý`) thay vì vội vã trả lời tự động.
