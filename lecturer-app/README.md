@@ -38,3 +38,4 @@ When `server.js` is running:
 2. **🎙️ Voice-to-FAQ Mirror:** Instant speech-to-text resolution using Web Speech API in Vietnamese.
 3. **✂️ HAX G9 Human Correction:** 1-click cluster splitting for AI misclassification recovery.
 4. **📢 1-Click Discord Recap:** Instant post-workshop Discord markdown generator.
+5. **📌 Always-on-top Host Companion:** Uses Document Picture-in-Picture on supported Chrome/Edge desktop browsers while preserving live cockpit state during pin/unpin handoff.

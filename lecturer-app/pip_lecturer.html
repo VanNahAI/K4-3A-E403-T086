@@ -87,6 +87,8 @@
       font-size: 0.72rem;
       cursor: pointer;
       font-weight: 600;
+      min-width: 44px;
+      min-height: 44px;
     }
 
     .btn-pip-icon:hover {
@@ -362,10 +364,13 @@
       </div>
     </div>
     <div class="pip-controls">
+      <button class="btn-pip-icon" id="btn-pin-companion" onclick="pinCompanionWindow()" title="Ghim trợ lý luôn trên màn hình">
+        📌 Ghim
+      </button>
       <button class="btn-pip-icon" onclick="openFullscreenStage()" title="Mở phòng Zoom toàn màn hình">
         🖥️ Zoom Tab
       </button>
-      <button class="btn-pip-icon" onclick="window.close()" title="Đóng cửa sổ">
+      <button class="btn-pip-icon" onclick="closeCompanionWindow()" title="Đóng cửa sổ">
         ✕
       </button>
     </div>
@@ -550,5 +555,6 @@
 
   <script src="/ai-core/ai_engine.js"></script>
   <script src="pip_lecturer.js"></script>
+  <script src="/pip_window_manager.js"></script>
 </body>
 </html>

@@ -32,3 +32,4 @@ When `server.js` is running:
 1. **Pre-submit Deflection:** Suggests verified answers while the student types before submitting.
 2. **Instant Echo Reply (< 5ms):** Auto-delivers the lecturer's verified answer when a duplicate question is asked.
 3. **Live FAQ Feed:** Displays all questions explained by the lecturer in real time.
+4. **Always-on-top Companion:** The `📌 Ghim` action uses Document Picture-in-Picture on supported Chrome/Edge desktop browsers and falls back to the regular pop-up otherwise.

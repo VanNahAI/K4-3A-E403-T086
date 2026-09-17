@@ -15,6 +15,8 @@ let totalLecMsgs = 0;
 let totalEchoShielded = 0;
 let recognition = null;
 let activeExplainingCluster = null;
+let connectionSuspended = false;
+let reconnectTimer = null;
 
 // Stopwords for local deflection matching
 const genericStopwords = ["lỗi", "em", "thầy", "cho", "hỏi", "bị", "là", "sao", "thế", "nào", "ạ", "với", "trong", "bài", "ở"];
@@ -48,6 +50,9 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 function connectWebSocket() {
+  if (connectionSuspended) return;
+  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
   const wsUrl = `${protocol}//${location.host}/ws`;
 
@@ -65,6 +70,7 @@ function connectWebSocket() {
       name: currentName,
       studentId: currentId
     }));
+    window.dispatchEvent(new CustomEvent('curator:connection-ready'));
   };
 
   ws.onmessage = async (event) => {
@@ -77,10 +83,12 @@ function connectWebSocket() {
   };
 
   ws.onclose = () => {
+    if (connectionSuspended) return;
     document.getElementById('pip-ws-dot').className = 'status-dot';
     document.getElementById('pip-ws-text').textContent = 'Mất kết nối. Đang thử lại...';
     document.getElementById('pip-ws-text').style.color = '#f87171';
-    setTimeout(connectWebSocket, 3000);
+    clearTimeout(reconnectTimer);
+    reconnectTimer = setTimeout(connectWebSocket, 3000);
   };
 }
 
@@ -473,3 +481,85 @@ function escapeHTML(str) {
     tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
   );
 }
+
+function exportCompanionState() {
+  return {
+    currentRole,
+    currentName,
+    currentId,
+    activeFaqs,
+    myQuestions,
+    lecturerClusters,
+    totalLecMsgs,
+    totalEchoShielded,
+    draftQuestion: document.getElementById('pip-student-input')?.value || '',
+    explanationDraft: document.getElementById('pip-explain-text')?.value || ''
+  };
+}
+
+function restoreCompanionState(state) {
+  if (!state || typeof state !== 'object') return;
+
+  currentRole = state.currentRole || currentRole;
+  currentName = state.currentName || currentName;
+  currentId = state.currentId || currentId;
+  activeFaqs = Array.isArray(state.activeFaqs) ? state.activeFaqs : activeFaqs;
+  myQuestions = Array.isArray(state.myQuestions) ? state.myQuestions : myQuestions;
+  lecturerClusters = Array.isArray(state.lecturerClusters) ? state.lecturerClusters : lecturerClusters;
+  totalLecMsgs = Number.isFinite(state.totalLecMsgs) ? state.totalLecMsgs : totalLecMsgs;
+  totalEchoShielded = Number.isFinite(state.totalEchoShielded) ? state.totalEchoShielded : totalEchoShielded;
+
+  const nameEl = document.getElementById('pip-user-name');
+  if (nameEl) nameEl.textContent = currentName;
+
+  const questionInput = document.getElementById('pip-student-input');
+  const explanationInput = document.getElementById('pip-explain-text');
+  if (questionInput && typeof state.draftQuestion === 'string') questionInput.value = state.draftQuestion;
+  if (explanationInput && typeof state.explanationDraft === 'string') explanationInput.value = state.explanationDraft;
+
+  if (window.engine && Array.isArray(lecturerClusters)) {
+    window.engine.clusters = lecturerClusters;
+  }
+
+  if (currentRole === 'student') {
+    renderStudentHistory();
+    renderStudentFaqs();
+  } else {
+    const messagesEl = document.getElementById('pip-lec-msgs');
+    const echoEl = document.getElementById('pip-lec-echo');
+    if (messagesEl) messagesEl.textContent = totalLecMsgs;
+    if (echoEl) echoEl.textContent = totalEchoShielded;
+    renderLecturerClusters();
+  }
+}
+
+function suspendCompanion() {
+  connectionSuspended = true;
+  clearTimeout(reconnectTimer);
+  reconnectTimer = null;
+
+  if (recognition) {
+    try { recognition.stop(); } catch (error) {}
+    recognition = null;
+  }
+
+  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+    ws.close(1000, 'Document PiP handoff');
+  }
+}
+
+function resumeCompanion() {
+  connectionSuspended = false;
+  if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
+    connectWebSocket();
+  }
+}
+
+window.curatorCompanionAdapter = {
+  exportState: exportCompanionState,
+  restoreState: restoreCompanionState,
+  suspend: suspendCompanion,
+  resume: resumeCompanion,
+  getRole: () => currentRole,
+  isConnected: () => !!ws && ws.readyState === WebSocket.OPEN
+};

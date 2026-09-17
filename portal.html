@@ -452,25 +452,10 @@
     }
 
     function openCompanionWindow(role, name, id) {
-      const pipUrl = `/pip?role=${encodeURIComponent(role)}&name=${encodeURIComponent(name)}&id=${encodeURIComponent(id)}`;
-      const width = role === 'student'
-        ? Math.min(900, window.screen.availWidth - 40)
-        : 430;
-      const height = Math.min(720, window.screen.availHeight - 80);
-      const left = window.screen.availWidth - width - 20;
-      const top = 40;
-
-      // Pop-out companion window
-      window.open(
-        pipUrl, 
-        'CuratorAI_PiP', 
-        `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,status=no`
-      );
-
-      // Also navigate current page or open in-tab room as backup
-      setTimeout(() => {
-        window.location.href = `/room?role=${encodeURIComponent(role)}&name=${encodeURIComponent(name)}&id=${encodeURIComponent(id)}`;
-      }, 500);
+      // The room embeds the companion and owns its Document PiP window. This
+      // avoids leaving an extra regular popup behind after the companion is
+      // pinned and lets the embedded Pin button work with a single click.
+      window.location.href = `/room?role=${encodeURIComponent(role)}&name=${encodeURIComponent(name)}&id=${encodeURIComponent(id)}`;
     }
 
     function joinAsStudent() {
@@ -484,7 +469,7 @@
         window.open(zoomConfig.url, '_blank');
       }
 
-      // 2. Open Picture-in-Picture Companion & in-tab room
+      // 2. Enter the room; its embedded companion can be pinned in one click
       openCompanionWindow('student', appearanceName, id);
     }
 
@@ -496,7 +481,7 @@
         window.open(zoomConfig.url, '_blank');
       }
 
-      // 2. Open Picture-in-Picture Companion & in-tab room
+      // 2. Enter the room; its embedded companion can be pinned in one click
       openCompanionWindow('lecturer', 'TS. Nguyễn Thành Nhân (Host)', 'HOST');
     }
 
