@@ -8,6 +8,12 @@ Không đặt token trong URL, mã nguồn hoặc Git.
 ```powershell
 $env:LECTURER_ACCESS_TOKEN = "thay-bang-chuoi-bi-mat-dai"
 $env:PORT = "3000"
+$env:ZOOM_MEETING_URL = "https://us06web.zoom.us/j/meeting-id"
+$env:ZOOM_MEETING_ID = "meeting-id"
+$env:ZOOM_PASSCODE = "mat-khau-zoom"
+$env:ZOOM_TOPIC = "AI20K Workshop"
+$env:ZOOM_SPEAKER = "Ten giang vien"
+$env:ENABLE_SIMULATION = "false"
 npm start
 ```
 
@@ -16,6 +22,12 @@ npm start
 ```bash
 export LECTURER_ACCESS_TOKEN="thay-bang-chuoi-bi-mat-dai"
 export PORT=3000
+export ZOOM_MEETING_URL="https://us06web.zoom.us/j/meeting-id"
+export ZOOM_MEETING_ID="meeting-id"
+export ZOOM_PASSCODE="mat-khau-zoom"
+export ZOOM_TOPIC="AI20K Workshop"
+export ZOOM_SPEAKER="Ten giang vien"
+export ENABLE_SIMULATION=false
 npm start
 ```
 
@@ -32,6 +44,11 @@ npm run test:realtime
 
 Nếu server không có `LECTURER_ACCESS_TOKEN`, các API quản trị sẽ bị khóa và
 không thể bắt đầu phiên giảng viên.
+
+Phòng Zoom mô phỏng bị tắt mặc định. Chỉ dùng `ENABLE_SIMULATION=true` khi cần
+chạy bộ giao diện legacy để kiểm thử; triển khai thật phải dùng URL Zoom thật
+trong biến môi trường `ZOOM_MEETING_URL`. Cấu hình này được kiểm tra trước khi
+mở phiên, nên server sẽ không tạo phiên nếu link Zoom chưa hợp lệ.
 
 Các API yêu cầu quyền giảng viên gồm:
 

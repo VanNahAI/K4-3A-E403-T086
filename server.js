@@ -16,6 +16,12 @@ const { WebSocketServer, WebSocket } = require('ws');
 const PORT = process.env.PORT || 3000;
 const CODEBASE_DIR = path.join(__dirname, 'codebase');
 const LECTURER_ACCESS_TOKEN = String(process.env.LECTURER_ACCESS_TOKEN || '').trim();
+const ENABLE_SIMULATION = String(process.env.ENABLE_SIMULATION || '').toLowerCase() === 'true';
+const ZOOM_MEETING_URL = String(process.env.ZOOM_MEETING_URL || '').trim();
+const ZOOM_MEETING_ID = String(process.env.ZOOM_MEETING_ID || '').trim();
+const ZOOM_PASSCODE = String(process.env.ZOOM_PASSCODE || '').trim();
+const ZOOM_TOPIC = String(process.env.ZOOM_TOPIC || 'AI20K Workshop').trim();
+const ZOOM_SPEAKER = String(process.env.ZOOM_SPEAKER || '').trim();
 
 // MIME types for static serving
 const MIME_TYPES = {
@@ -29,13 +35,14 @@ const MIME_TYPES = {
   '.ico': 'image/x-icon'
 };
 
-// Pre-configured Zoom meeting state
+// Zoom meeting state is initialized from environment variables and can be
+// updated at runtime by an authenticated lecturer.
 let zoomMeetingConfig = {
-  url: 'https://us06web.zoom.us/j/84920419921?pwd=ai20k_workshop_lab',
-  meetingId: '849 2041 9921',
-  passcode: 'ai20k',
-  topic: 'AI20K · Workshop 01 — Q&A Onboarding & Lab Setup',
-  speaker: 'TS. Nguyễn Thành Nhân & Ban Trợ Giảng K4'
+  url: ZOOM_MEETING_URL,
+  meetingId: ZOOM_MEETING_ID,
+  passcode: ZOOM_PASSCODE,
+  topic: ZOOM_TOPIC,
+  speaker: ZOOM_SPEAKER
 };
 
 function getBearerToken(req) {
@@ -92,6 +99,15 @@ function getPublicZoomConfig() {
   };
 }
 
+function isValidZoomUrl(value) {
+  try {
+    const parsed = new URL(String(value || '').trim());
+    return (parsed.protocol === 'https:' || parsed.protocol === 'http:') && Boolean(parsed.hostname);
+  } catch (error) {
+    return false;
+  }
+}
+
 function isAuthorizedLecturer(client) {
   return Boolean(client && client.role === 'lecturer' && client.authenticated);
 }
@@ -110,6 +126,15 @@ function sendWsAuthError(ws, message = 'Cần xác thực giảng viên hợp l�
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   let pathname = url.pathname;
+
+  if ((pathname === '/room' || pathname === '/zoom') && !ENABLE_SIMULATION) {
+    sendJson(res, 410, {
+      success: false,
+      code: 'SIMULATION_DISABLED',
+      message: 'Phòng Zoom mô phỏng đã được tắt. Hãy tham gia bằng liên kết Zoom thật.'
+    });
+    return;
+  }
 
   // Route aliases
   if (pathname === '/' || pathname === '/portal') {
@@ -133,7 +158,17 @@ const server = http.createServer((req, res) => {
       req.on('end', () => {
         try {
           const json = JSON.parse(body);
-          if (json.url) zoomMeetingConfig.url = json.url;
+          if (json.url !== undefined) {
+            if (!isValidZoomUrl(json.url)) {
+              sendJson(res, 400, {
+                success: false,
+                code: 'INVALID_ZOOM_URL',
+                message: 'Link Zoom phải là URL http hoặc https hợp lệ.'
+              });
+              return;
+            }
+            zoomMeetingConfig.url = String(json.url).trim();
+          }
           if (json.meetingId) zoomMeetingConfig.meetingId = json.meetingId;
           if (json.passcode) zoomMeetingConfig.passcode = json.passcode;
           if (json.topic) zoomMeetingConfig.topic = json.topic;
@@ -185,12 +220,20 @@ const server = http.createServer((req, res) => {
   // authoritative place where all FAQ/question state is cleared.
   if (req.method === 'POST' && pathname === '/api/session/start') {
     if (!requireLecturerHttp(req, res)) return;
+    if (!isValidZoomUrl(zoomMeetingConfig.url)) {
+      sendJson(res, 503, {
+        success: false,
+        code: 'ZOOM_NOT_CONFIGURED',
+        message: 'Chưa cấu hình ZOOM_MEETING_URL hợp lệ cho buổi học.'
+      });
+      return;
+    }
     const session = startNewSession();
     sendJson(res, 200, { success: true, session });
     return;
   }
 
-  // Students use this endpoint before entering the simulated Zoom room.
+  // Students use this endpoint before entering the real Zoom meeting.
   if (req.method === 'POST' && pathname === '/api/session/join') {
     if (!sessionState.isOpen) {
       res.writeHead(403, { 'Content-Type': 'application/json' });
