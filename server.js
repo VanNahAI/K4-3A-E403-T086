@@ -10,10 +10,12 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const crypto = require('crypto');
 const { WebSocketServer, WebSocket } = require('ws');
 
 const PORT = process.env.PORT || 3000;
 const CODEBASE_DIR = path.join(__dirname, 'codebase');
+const LECTURER_ACCESS_TOKEN = String(process.env.LECTURER_ACCESS_TOKEN || '').trim();
 
 // MIME types for static serving
 const MIME_TYPES = {
@@ -36,6 +38,74 @@ let zoomMeetingConfig = {
   speaker: 'TS. Nguyễn Thành Nhân & Ban Trợ Giảng K4'
 };
 
+function getBearerToken(req) {
+  const authorization = String(req.headers.authorization || '');
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
+  return match ? match[1].trim() : '';
+}
+
+function hasValidLecturerToken(providedToken) {
+  if (!LECTURER_ACCESS_TOKEN || !providedToken) return false;
+
+  const expected = Buffer.from(LECTURER_ACCESS_TOKEN, 'utf8');
+  const provided = Buffer.from(String(providedToken), 'utf8');
+  return expected.length === provided.length && crypto.timingSafeEqual(expected, provided);
+}
+
+function sendJson(res, statusCode, payload) {
+  res.writeHead(statusCode, {
+    'Content-Type': 'application/json; charset=UTF-8',
+    'Cache-Control': 'no-store'
+  });
+  res.end(JSON.stringify(payload));
+}
+
+function requireLecturerHttp(req, res) {
+  if (!LECTURER_ACCESS_TOKEN) {
+    sendJson(res, 503, {
+      success: false,
+      code: 'LECTURER_AUTH_NOT_CONFIGURED',
+      message: 'Server chưa cấu hình LECTURER_ACCESS_TOKEN.'
+    });
+    return false;
+  }
+
+  if (!hasValidLecturerToken(getBearerToken(req))) {
+    sendJson(res, 401, {
+      success: false,
+      code: 'LECTURER_AUTH_REQUIRED',
+      message: 'Cần mã truy cập giảng viên hợp lệ.'
+    });
+    return false;
+  }
+
+  return true;
+}
+
+function getPublicZoomConfig() {
+  return {
+    url: zoomMeetingConfig.url,
+    meetingId: zoomMeetingConfig.meetingId,
+    topic: zoomMeetingConfig.topic,
+    speaker: zoomMeetingConfig.speaker,
+    passcode: null
+  };
+}
+
+function isAuthorizedLecturer(client) {
+  return Boolean(client && client.role === 'lecturer' && client.authenticated);
+}
+
+function sendWsAuthError(ws, message = 'Cần xác thực giảng viên hợp lệ.') {
+  if (ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({
+      type: 'auth_error',
+      code: 'LECTURER_AUTH_REQUIRED',
+      message
+    }));
+  }
+}
+
 // HTTP Server
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
@@ -57,6 +127,7 @@ const server = http.createServer((req, res) => {
   // API: Get / Set pre-configured Zoom meeting link
   if (pathname === '/api/config-zoom') {
     if (req.method === 'POST') {
+      if (!requireLecturerHttp(req, res)) return;
       let body = '';
       req.on('data', chunk => { body += chunk; });
       req.on('end', () => {
@@ -66,23 +137,21 @@ const server = http.createServer((req, res) => {
           if (json.meetingId) zoomMeetingConfig.meetingId = json.meetingId;
           if (json.passcode) zoomMeetingConfig.passcode = json.passcode;
           if (json.topic) zoomMeetingConfig.topic = json.topic;
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: true, config: zoomMeetingConfig }));
+          sendJson(res, 200, { success: true, config: zoomMeetingConfig });
         } catch (e) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: e.message }));
+          sendJson(res, 400, { error: e.message });
         }
       });
       return;
     } else {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(zoomMeetingConfig));
+      sendJson(res, 200, getPublicZoomConfig());
       return;
     }
   }
 
   // REST API: Ingest raw Zoom chat
   if (req.method === 'POST' && pathname === '/api/zoom-import') {
+    if (!requireLecturerHttp(req, res)) return;
     let body = '';
     req.on('data', chunk => { body += chunk; });
     req.on('end', () => {
@@ -97,11 +166,9 @@ const server = http.createServer((req, res) => {
           messages: parsed
         });
 
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: true, importedCount: parsed.length }));
+        sendJson(res, 200, { success: true, importedCount: parsed.length });
       } catch (err) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: err.message }));
+        sendJson(res, 400, { error: err.message });
       }
     });
     return;
@@ -117,9 +184,9 @@ const server = http.createServer((req, res) => {
   // Start a brand-new workshop session. Starting a session is also the
   // authoritative place where all FAQ/question state is cleared.
   if (req.method === 'POST' && pathname === '/api/session/start') {
+    if (!requireLecturerHttp(req, res)) return;
     const session = startNewSession();
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: true, session }));
+    sendJson(res, 200, { success: true, session });
     return;
   }
 
@@ -141,6 +208,7 @@ const server = http.createServer((req, res) => {
   }
 
   if (req.method === 'POST' && pathname === '/api/reset-session') {
+    if (!requireLecturerHttp(req, res)) return;
     activeFaqs = [];
     sessionQuestionsCount = 0;
     sessionState = {
@@ -158,8 +226,7 @@ const server = http.createServer((req, res) => {
       session: getSessionSnapshot(),
       message: 'Phiên học đã được làm sạch.'
     });
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: true, message: 'Session reset successfully' }));
+    sendJson(res, 200, { success: true, message: 'Session reset successfully' });
     return;
   }
 
@@ -206,7 +273,7 @@ const server = http.createServer((req, res) => {
 
 // WebSocket Server
 const wss = new WebSocketServer({ server });
-const clients = new Map(); // ws -> { role: 'student'|'lecturer', id: string, name: string }
+const clients = new Map(); // ws -> { role, id, name, authenticated, sessionId }
 
 // Live session state
 let activeFaqs = [];
@@ -255,7 +322,7 @@ function startNewSession() {
 
 wss.on('connection', (ws) => {
   const clientId = `USER_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-  clients.set(ws, { role: 'unknown', id: clientId, name: '' });
+  clients.set(ws, { role: 'unknown', id: clientId, name: '', authenticated: false });
 
   ws.on('message', (data) => {
     try {
@@ -393,6 +460,19 @@ function handleWebSocketMessage(ws, msg) {
 
   switch (msg.type) {
     case 'register_role':
+      if (msg.role === 'lecturer') {
+        if (!hasValidLecturerToken(msg.token)) {
+          client.role = 'unknown';
+          client.authenticated = false;
+          sendWsAuthError(ws, 'Không thể đăng ký quyền giảng viên nếu thiếu mã truy cập hợp lệ.');
+          ws.close(1008, 'Lecturer authentication required');
+          break;
+        }
+        client.authenticated = true;
+      } else {
+        client.authenticated = false;
+      }
+
       client.role = msg.role; // 'lecturer' or 'student'
       client.name = msg.name || (client.role === 'student' ? `S${Math.floor(1000 + Math.random() * 9000)}` : 'Giảng viên');
       client.sessionId = sessionState.sessionId;
@@ -485,6 +565,10 @@ function handleWebSocketMessage(ws, msg) {
 
     case 'broadcast_faq_resolved':
       // Lecturer broadcast a newly extracted FAQ
+      if (!isAuthorizedLecturer(client)) {
+        sendWsAuthError(ws);
+        break;
+      }
       if (msg.faq) {
         activeFaqs.unshift(msg.faq);
         // Broadcast to all students so their live FAQ feed updates!
@@ -497,6 +581,10 @@ function handleWebSocketMessage(ws, msg) {
 
     case 'send_echo_reply_to_student':
       // Lecturer AI detected an echo inquiry and sends instant answer to that student
+      if (!isAuthorizedLecturer(client)) {
+        sendWsAuthError(ws);
+        break;
+      }
       sendToClient(msg.targetClientId, {
         type: 'instant_echo_reply',
         studentMsg: msg.studentMsg,
@@ -507,6 +595,10 @@ function handleWebSocketMessage(ws, msg) {
       break;
 
     case 'sync_active_faqs':
+      if (!isAuthorizedLecturer(client)) {
+        sendWsAuthError(ws);
+        break;
+      }
       if (Array.isArray(msg.faqs)) {
         activeFaqs = msg.faqs;
         broadcastToRole('student', {
@@ -521,7 +613,9 @@ function handleWebSocketMessage(ws, msg) {
 function broadcastToRole(role, payload) {
   const str = JSON.stringify(payload);
   for (const [ws, info] of clients.entries()) {
-    if (ws.readyState === WebSocket.OPEN && (role === 'all' || info.role === role)) {
+    const isTargetRole = role === 'all' || info.role === role;
+    const canReceiveLecturerTraffic = role !== 'lecturer' || isAuthorizedLecturer(info);
+    if (ws.readyState === WebSocket.OPEN && isTargetRole && canReceiveLecturerTraffic) {
       ws.send(str);
     }
   }
@@ -549,7 +643,7 @@ function broadcastStudentCount() {
   });
 
   for (const [ws, info] of clients.entries()) {
-    if (ws.readyState === WebSocket.OPEN && info.role === 'lecturer') {
+    if (ws.readyState === WebSocket.OPEN && isAuthorizedLecturer(info)) {
       ws.send(payload);
     }
   }

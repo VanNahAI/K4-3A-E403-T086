@@ -15,10 +15,11 @@
 const WebSocket = require('ws');
 const http = require('http');
 const PORT = Number(process.env.TEST_PORT || 3000);
+const LECTURER_ACCESS_TOKEN = String(process.env.LECTURER_ACCESS_TOKEN || '').trim();
 
-function requestJson(path, method = 'GET') {
+function requestJson(path, method = 'GET', headers = {}) {
   return new Promise((resolve, reject) => {
-    const req = http.request({ host: 'localhost', port: PORT, path, method }, (res) => {
+    const req = http.request({ host: 'localhost', port: PORT, path, method, headers }, (res) => {
       let body = '';
       res.on('data', chunk => { body += chunk; });
       res.on('end', () => {
@@ -45,8 +46,12 @@ function closeQuietly(ws) {
 
 async function runE2ETest() {
   console.log('=== BẮT ĐẦU KIỂM THỬ REALTIME WEBSOCKET ===');
-  await requestJson('/api/reset-session', 'POST');
-  const startResult = await requestJson('/api/session/start', 'POST');
+  if (!LECTURER_ACCESS_TOKEN) {
+    throw new Error('Thiếu LECTURER_ACCESS_TOKEN. Hãy cấu hình biến môi trường trước khi chạy test realtime.');
+  }
+  const lecturerHeaders = { Authorization: `Bearer ${LECTURER_ACCESS_TOKEN}` };
+  await requestJson('/api/reset-session', 'POST', lecturerHeaders);
+  const startResult = await requestJson('/api/session/start', 'POST', lecturerHeaders);
   if (startResult.status !== 200 || !startResult.body.session?.isOpen) {
     throw new Error('Không thể mở session test.');
   }
@@ -55,7 +60,12 @@ async function runE2ETest() {
   const firstStudentWs = new WebSocket(`ws://localhost:${PORT}/ws`);
   await Promise.all([waitForOpen(lecturerWs), waitForOpen(firstStudentWs)]);
 
-  lecturerWs.send(JSON.stringify({ type: 'register_role', role: 'lecturer', name: 'Giảng viên Test' }));
+  lecturerWs.send(JSON.stringify({
+    type: 'register_role',
+    role: 'lecturer',
+    name: 'Giảng viên Test',
+    token: LECTURER_ACCESS_TOKEN
+  }));
   firstStudentWs.send(JSON.stringify({ type: 'register_role', role: 'student', name: 'S_FIRST' }));
 
   const testId = Date.now().toString().slice(-5);
@@ -159,7 +169,7 @@ async function runE2ETest() {
   await new Promise(resolve => setTimeout(resolve, 500));
 
   // Verify a fresh lecturer session does not inherit the previous FAQ.
-  const newSession = await requestJson('/api/session/start', 'POST');
+  const newSession = await requestJson('/api/session/start', 'POST', lecturerHeaders);
   const freshStudent = new WebSocket(`ws://localhost:${PORT}/ws`);
   const freshState = await new Promise(resolve => {
     freshStudent.once('message', data => resolve(JSON.parse(data.toString())));

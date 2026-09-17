@@ -63,12 +63,16 @@ function connectWebSocket() {
     document.getElementById('pip-ws-text').style.color = '#34d399';
 
     // Register role and appearance name
-    ws.send(JSON.stringify({
+    const registration = {
       type: 'register_role',
       role: currentRole,
       name: currentName,
       studentId: currentId
-    }));
+    };
+    if (currentRole === 'lecturer') {
+      registration.token = window.curatorAuth?.getLecturerToken(true) || '';
+    }
+    ws.send(JSON.stringify(registration));
   };
 
   ws.onmessage = async (event) => {
@@ -111,6 +115,11 @@ async function handleServerMessage(msg) {
         renderStudentFaqs();
         showNotificationToast(`🔔 Thầy vừa giải thích: "${msg.faq.canonicalQuestion}"`);
       }
+      break;
+
+    case 'auth_error':
+      document.getElementById('pip-ws-text').textContent = msg.message || 'Chưa xác thực giảng viên';
+      document.getElementById('pip-ws-text').style.color = '#f87171';
       break;
 
     case 'faqs_refreshed':

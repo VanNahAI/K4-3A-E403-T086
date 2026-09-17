@@ -337,8 +337,6 @@
         <span class="preview-val" id="preview-appearance-name">Minh Quân (S0129)</span>
       </div>
 
-      <div style="margin: 12px 0; color: #94a3b8; font-size: 0.78rem;">🧪 Chế độ test: phòng mô phỏng nội bộ, không mở Zoom thật.</div>
-
       <button class="btn-join-main" onclick="joinAsStudent()">
         <span>🚀 Tham gia Workshop (Phòng mô phỏng &amp; Trợ Lý PiP)</span>
       </button>
@@ -359,7 +357,10 @@
         </p>
       </div>
 
-      <div style="margin: 12px 0; color: #94a3b8; font-size: 0.78rem;">🧪 Chế độ test: phòng mô phỏng nội bộ, không mở Zoom thật.</div>
+      <label for="lecturer-access-token-input" class="form-label">Mã truy cập giảng viên:</label>
+      <input type="password" id="lecturer-access-token-input" class="form-control-portal" placeholder="Nhập LECTURER_ACCESS_TOKEN">
+
+      <div style="margin: 12px 0; color: #94a3b8; font-size: 0.78rem;">Mã này chỉ dùng để xác thực quyền điều phối phiên học.</div>
 
       <button class="btn-join-main" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);" onclick="joinAsLecturer()">
         <span>🚀 Bắt đầu buổi giảng (Phòng mô phỏng &amp; Host Cockpit)</span>
@@ -374,6 +375,7 @@
 
   </div>
 
+  <script src="auth_client.js"></script>
   <script>
     let currentRole = 'student';
     let zoomConfig = {
@@ -462,8 +464,12 @@
     }
 
     function joinAsLecturer() {
-      // Opening the lecturer room starts a fresh local test session. It also
-      // resets the server's FAQ/question store before students can join.
+      const token = document.getElementById('lecturer-access-token-input').value.trim();
+      if (!token) {
+        alert('Vui lòng nhập mã truy cập giảng viên.');
+        return;
+      }
+      window.curatorAuth.saveLecturerToken(token);
       openSimulatedRoom('lecturer', 'TS. Nguyễn Thành Nhân (Host)', 'HOST');
     }
 
@@ -473,9 +479,10 @@
         zoomConfig.url = newUrl.trim();
         document.getElementById('zoom-url-text').textContent = zoomConfig.url;
         try {
+          const headers = window.curatorAuth.getLecturerHeaders(true);
           await fetch('/api/config-zoom', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...headers },
             body: JSON.stringify({ url: zoomConfig.url })
           });
         } catch (e) {

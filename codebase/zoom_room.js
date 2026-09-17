@@ -93,17 +93,26 @@ window.addEventListener('DOMContentLoaded', () => {
 async function enterLocalMeeting(params) {
   try {
     let response;
+    const lecturerHeaders = currentRole === 'lecturer'
+      ? (window.curatorAuth?.getLecturerHeaders(true) || {})
+      : {};
+
+    if (currentRole === 'lecturer' && !lecturerHeaders.Authorization) {
+      showMeetingClosed('Cần mã truy cập giảng viên để bắt đầu buổi học.');
+      return;
+    }
+
     if (currentRole === 'lecturer') {
       // The portal marks a deliberate "start a new meeting" action. The
       // fallback also makes a direct /room?role=lecturer link usable.
       if (params.get('newSession') === '1') {
-        response = await fetch('/api/session/start', { method: 'POST' });
+        response = await fetch('/api/session/start', { method: 'POST', headers: lecturerHeaders });
       } else {
         const stateResponse = await fetch('/api/session/state');
         const state = await stateResponse.json();
         response = state.isOpen
           ? stateResponse
-          : await fetch('/api/session/start', { method: 'POST' });
+          : await fetch('/api/session/start', { method: 'POST', headers: lecturerHeaders });
       }
     } else {
       response = await fetch('/api/session/join', { method: 'POST' });

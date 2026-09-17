@@ -114,10 +114,12 @@ function initLecturerWebSocket() {
 
     ws.onopen = () => {
       console.log("✓ Lecturer connected to WebSocket server");
+      const token = window.curatorAuth?.getLecturerToken(true) || '';
       ws.send(JSON.stringify({
         type: 'register_role',
         role: 'lecturer',
-        name: 'Giảng viên'
+        name: 'Giảng viên',
+        token
       }));
     };
 
@@ -142,6 +144,10 @@ async function handleServerMessage(msg) {
   switch (msg.type) {
     case 'connected':
       syncDashboardSession(msg.session);
+      break;
+
+    case 'auth_error':
+      console.error('Xác thực giảng viên thất bại:', msg.message);
       break;
 
     case 'session_started':
@@ -1025,10 +1031,21 @@ async function executeZoomImport() {
   btn.textContent = `Đang nạp ${parsed.length} tin nhắn...`;
   btn.disabled = true;
 
-  await window.zoomBridge.ingestBatch(parsed, (cur, total) => {
-    document.getElementById('zoom-import-status').textContent = `Đang nạp: ${cur}/${total}...`;
+  const authHeaders = window.curatorAuth?.getLecturerHeaders(true) || {};
+  const importResponse = await fetch('/api/zoom-import', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders },
+    body: JSON.stringify({ rawText })
   });
+  if (!importResponse.ok) {
+    const error = await importResponse.json().catch(() => ({}));
+    btn.textContent = "Bắt đầu nạp vào luồng Stream 🚀";
+    btn.disabled = false;
+    alert(error.message || 'Không thể nhập chat Zoom vì chưa được xác thực.');
+    return;
+  }
 
+  document.getElementById('zoom-import-status').textContent = `Đã gửi ${parsed.length} tin nhắn vào luồng realtime.`;
   btn.textContent = "Bắt đầu nạp vào luồng Stream 🚀";
   btn.disabled = false;
   closeZoomImportModal();
