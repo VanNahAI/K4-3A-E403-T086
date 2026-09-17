@@ -141,25 +141,6 @@ async function handleServerMessage(msg) {
 // STUDENT LOGIC
 // =========================================================================
 
-function switchStudentTab(tab) {
-  const btnAsk = document.getElementById('btn-tab-ask');
-  const btnFaqs = document.getElementById('btn-tab-faqs');
-  const viewAsk = document.getElementById('pip-view-ask');
-  const viewFaqs = document.getElementById('pip-view-faqs');
-
-  if (tab === 'ask') {
-    btnAsk.classList.add('active');
-    btnFaqs.classList.remove('active');
-    viewAsk.classList.remove('hidden');
-    viewFaqs.classList.add('hidden');
-  } else {
-    btnFaqs.classList.add('active');
-    btnAsk.classList.remove('active');
-    viewFaqs.classList.remove('hidden');
-    viewAsk.classList.add('hidden');
-  }
-}
-
 function handleTypingDeflection(text) {
   const box = document.getElementById('pip-deflection-box');
   const ansEl = document.getElementById('pip-deflection-answer');

@@ -453,8 +453,10 @@
 
     function openCompanionWindow(role, name, id) {
       const pipUrl = `/pip?role=${encodeURIComponent(role)}&name=${encodeURIComponent(name)}&id=${encodeURIComponent(id)}`;
-      const width = 430;
-      const height = 720;
+      const width = role === 'student'
+        ? Math.min(900, window.screen.availWidth - 40)
+        : 430;
+      const height = Math.min(720, window.screen.availHeight - 80);
       const left = window.screen.availWidth - width - 20;
       const top = 40;
 
