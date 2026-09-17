@@ -11,7 +11,6 @@
 let ws = null;
 let studentId = localStorage.getItem('curator_student_id') || `S${Math.floor(1000 + Math.random() * 9000)}`;
 let myQuestions = JSON.parse(localStorage.getItem('curator_my_questions') || '[]');
-
 const DEFAULT_WORKSHOP_FAQS = [
   {
     id: "FAQ_CUDA_OOM",
@@ -56,7 +55,6 @@ const DEFAULT_WORKSHOP_FAQS = [
 ];
 
 let activeFaqs = [...DEFAULT_WORKSHOP_FAQS];
-let currentStudentTab = 'ask';
 
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('tag-student-id').textContent = `${studentId} ▾`;
@@ -350,8 +348,8 @@ function renderMyQuestions() {
 
 function renderFaqFeed() {
   const list = document.getElementById('student-faqs-list');
-  const countTag = document.getElementById('count-student-faqs');
-  countTag.textContent = activeFaqs.length;
+  const visibleCountTag = document.getElementById('student-faqs-visible-count');
+  visibleCountTag.textContent = activeFaqs.length;
 
   if (activeFaqs.length === 0) {
     list.innerHTML = `
@@ -375,15 +373,6 @@ function renderFaqFeed() {
       </div>
     </div>
   `).join('');
-}
-
-function switchStudentTab(tab) {
-  currentStudentTab = tab;
-  document.getElementById('tab-btn-ask').classList.toggle('active', tab === 'ask');
-  document.getElementById('tab-btn-faqs').classList.toggle('active', tab === 'faqs');
-
-  document.getElementById('view-ask').classList.toggle('hidden', tab !== 'ask');
-  document.getElementById('view-faqs').classList.toggle('hidden', tab !== 'faqs');
 }
 
 function showInstantEchoModal(data) {
@@ -419,6 +408,5 @@ function escapeHTML(str) {
   );
 }
 
-window.switchStudentTab = switchStudentTab;
 window.closeStudentEchoModal = closeStudentEchoModal;
 window.promptChangeName = promptChangeName;
