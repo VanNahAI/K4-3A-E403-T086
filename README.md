@@ -8,9 +8,9 @@
 
 | Họ và Tên | Mã Học Viên | Vai trò chính | Phần việc đảm nhiệm trong dự án |
 |---|---|---|---|
-| **Chu Văn Nhân** (Leader) | 2A202602668 | Product Lead | Canvas CP1, AI Spec §1–§9 theo template chuẩn, Mining 779 tin Discord (Evidence B), Khảo sát n=20 (Evidence A), Kịch bản pitch 6 slides |
+| **Chu Văn Nhân** (Leader) | 2A202602668 | Product Lead | Canvas CP1, AI Spec §1–§9, mining 779 tin Discord bằng quy tắc tái lập (Evidence B), tổng hợp khảo sát ẩn danh n=25, kịch bản pitch 6 slides |
 | **Nguyễn Khắc Quang** | 2A20260285 | Frontend Engineer | Xây dựng Dual Workspace UI, Web Speech API Voice Mirror tiếng Việt, Tách nhóm HAX G9, Cháy chat radar, Modal xuất Discord Recap |
-| **Dương Dương** | 2A202602498 | AI Engineer & QA | Tích hợp OpenRouter Mini & Local Qwen2.5-3B, Pipeline FAQ Caching & Echo-Responder, Xây dựng Golden Set 24 cases, Viết runner test đạt 87.5% |
+| **Dương Dương** | 2A202602498 | AI Engineer & QA | Tích hợp OpenRouter Mini & Local Qwen2.5-3B, Pipeline FAQ Caching & Echo-Responder, xây dựng Golden Set 25 cases, runner và test hồi quy đạt 100% |
 
 > Nhóm copy nguyên file README này về repo của mình, rồi điền bảng trên. Cột **Phần việc đảm nhiệm** ghi càng cụ thể càng tốt.
 

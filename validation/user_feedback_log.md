@@ -2,6 +2,8 @@
 
 > **Mục tiêu:** Kiểm chứng tính khả thi và trải nghiệm của tính năng **"Live Voice-to-FAQ"** và **"Echo-Responder Auto-Reply"** với người dùng thật ngoài nhóm theo phương pháp Mom Test (Guide §4.2).
 
+> **Trạng thái tại CP4:** Bản nháp cho vòng validation CP5. Các dòng dưới đây chỉ được dùng làm Evidence R6 sau khi người thử thật đã trực tiếp thao tác prototype và nhóm xác nhận lại nhiệm vụ, quan sát cùng câu nói nguyên văn. File này không thay thế log khảo sát vấn đề trong `problem_survey_log.md`.
+
 ---
 
 ## 1. Bảng Nhật ký Thử nghiệm (User Testing Log)
@@ -22,4 +24,4 @@
 4. **Hạng mục để dành cho tuần tiếp theo:** Tích hợp trực tiếp Zoom Apps SDK để chạy như một widget nổi bên trong cửa sổ Zoom thay vì mở qua trình duyệt web.
 
 ---
-*Hoàn thành trước mốc CP5 theo đúng rubric đánh giá R6.*
+*Mục tiêu: xác minh và hoàn thành trước mốc CP5 theo rubric đánh giá R6.*
