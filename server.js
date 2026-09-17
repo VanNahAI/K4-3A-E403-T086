@@ -232,6 +232,135 @@ Chỉ trả về định dạng JSON thuần túy (không kèm giải thích hay
     return;
   }
 
+  // REST API: Verify whether student question matches a candidate FAQ using LLM
+  if (req.method === 'POST' && pathname === '/api/llm-verify-faq') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', async () => {
+      try {
+        const json = JSON.parse(body);
+        const { question, candidateFaq } = json;
+        const apiKey = process.env.OPENROUTER_API_KEY || json.apiKey || '';
+
+        if (!candidateFaq) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, matched: false, reason: 'Không có FAQ đối chiếu' }));
+          return;
+        }
+
+        // 1. Zero-latency heuristic contradiction pre-filter
+        if (hasSemanticConflict(question, candidateFaq)) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            success: true,
+            matched: false,
+            confidence: 0.99,
+            reason: "Phát hiện mâu thuẫn thời gian/chủ đề (ví dụ: 'hôm nay' vs 'ngày mai', hoặc bài lab khác nhau).",
+            provider: 'fast_conflict_filter'
+          }));
+          return;
+        }
+
+        // 2. If no OpenRouter key, fallback safely
+        if (!apiKey) {
+          const localOk = !hasSemanticConflict(question, candidateFaq);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            success: true,
+            matched: localOk,
+            confidence: localOk ? 0.8 : 0.2,
+            reason: localOk ? "Khớp ngữ nghĩa cục bộ" : "Không khớp ngữ nghĩa",
+            fallback: true
+          }));
+          return;
+        }
+
+        let model = process.env.OPENROUTER_MODEL || 'nex-agi/nex-n2.5-mini:free';
+        if (!model || model.includes('gemini-2.0-flash')) {
+          model = 'nex-agi/nex-n2.5-mini:free';
+        }
+
+        const prompt = `Bạn là AI thẩm định sự trùng khớp câu hỏi của học viên với ngân hàng câu trả lời FAQ.
+Học viên đang hỏi: "${question}"
+
+Câu hỏi/đáp án FAQ có sẵn của Giảng viên:
+- Tiêu đề: "${candidateFaq.canonicalQuestion || candidateFaq.title}"
+- Đáp án của Thầy: "${candidateFaq.answer}"
+
+QUY TẮC BẮT BUỘC:
+1. MỐC THỜI GIAN: Nếu học viên hỏi về 'ngày mai' / 'tuần sau' / 'hôm qua' trong khi FAQ nói về 'hôm nay' (hoặc ngược lại), TUYỆT ĐỐI KHÔNG ĐƯỢC COI LÀ TRÙNG KHỚP (matched = false).
+2. SỐ THỨ TỰ BÀI/LAB: Nếu học viên hỏi bài Lab khác (ví dụ: hỏi Lab 3 trong khi FAQ là Lab 2), TUYỆT ĐỐI KHÔNG TRÙNG KHỚP (matched = false).
+3. ĐÁP ÁN: Chỉ trả về matched = true khi đáp án của FAQ thực sự giải đáp đúng và đủ câu hỏi của học viên.
+
+Chỉ trả về định dạng JSON thuần túy (không kèm markdown):
+{
+  "matched": false,
+  "confidence": 0.95,
+  "reason": "Giải thích ngắn gọn bằng tiếng Việt dưới 25 từ"
+}`;
+
+        const llmRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiKey}`,
+            "HTTP-Referer": "https://ai20k-workshop-curator.local",
+            "X-Title": "Workshop Question Curator"
+          },
+          body: JSON.stringify({
+            model: model,
+            messages: [
+              { role: "system", content: "Bạn là AI thẩm định câu hỏi học tập, luôn trả về JSON hợp lệ." },
+              { role: "user", content: prompt }
+            ],
+            temperature: 0.1
+          }),
+          signal: AbortSignal.timeout(6000)
+        });
+
+        if (!llmRes.ok) {
+          throw new Error(`OpenRouter HTTP ${llmRes.status}`);
+        }
+
+        const data = await llmRes.json();
+        const rawContent = data.choices[0].message.content.trim();
+        let parsed = null;
+        try {
+          const cleanJson = rawContent.replace(/```json/gi, '').replace(/```/g, '').trim();
+          parsed = JSON.parse(cleanJson);
+        } catch (parseErr) {
+          const match = rawContent.match(/\{[\s\S]*\}/);
+          if (match) parsed = JSON.parse(match[0]);
+        }
+
+        if (parsed && typeof parsed.matched === 'boolean') {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            success: true,
+            matched: parsed.matched,
+            confidence: parsed.confidence || 0.95,
+            reason: parsed.reason || '',
+            model: model
+          }));
+        } else {
+          throw new Error("Invalid LLM response structure");
+        }
+      } catch (err) {
+        console.warn("[LLM Student Verify] Fallback due to:", err.message);
+        const localMatch = !hasSemanticConflict(json?.question, json?.candidateFaq);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true,
+          matched: localMatch,
+          confidence: 0.75,
+          reason: "Fallback xác thực cục bộ",
+          fallback: true
+        }));
+      }
+    });
+    return;
+  }
+
   // API: Get / Set pre-configured Zoom meeting link
   if (pathname === '/api/config-zoom') {
     if (req.method === 'POST') {
@@ -552,7 +681,48 @@ function meaningfulQuestionTokens(value) {
   return normalizeSearchText(value).split(' ').filter(token => token.length >= 2 && !stopwords.has(token));
 }
 
+function hasSemanticConflict(questionText, faq) {
+  if (!questionText || !faq) return false;
+  const qNorm = normalizeSearchText(questionText);
+  const faqTitleNorm = normalizeSearchText(faq.canonicalQuestion || faq.originalClusterTitle || faq.title || '');
+  const faqAnsNorm = normalizeSearchText(faq.answer || '');
+  const faqTextNorm = `${faqTitleNorm} ${faqAnsNorm}`;
+
+  // 1. Temporal conflicts: Today vs Tomorrow vs Yesterday vs Next week
+  const qHasTomorrow = /\b(ngay mai|mai nay|hom sau|ngay tiep theo)\b/.test(qNorm) || (/\bmai\b/.test(qNorm) && !/\bmyvinuni\b/.test(qNorm) && !/\bmai vn\b/.test(qNorm));
+  const qHasToday = /\b(hom nay|bua nay|chieu nay|toi nay|sang nay)\b/.test(qNorm);
+  const qHasYesterday = /\b(hom qua|hom truoc)\b/.test(qNorm);
+  const qHasNextWeek = /\b(tuan sau|tuan toi)\b/.test(qNorm);
+
+  const faqHasToday = /\b(hom nay|bua nay|chieu nay|toi nay|sang nay)\b/.test(faqTextNorm);
+  const faqHasTomorrow = /\b(ngay mai|mai nay|hom sau)\b/.test(faqTextNorm);
+
+  if (qHasTomorrow && faqHasToday && !faqHasTomorrow) return true;
+  if (qHasYesterday && faqHasToday) return true;
+  if (qHasNextWeek && !faqTextNorm.includes('tuan sau') && !faqTextNorm.includes('tuan toi')) return true;
+
+  // 2. Lab numbering conflicts: e.g. "lab 1", "lab 2", "lab 3", "lab 4"
+  const qLabMatch = qNorm.match(/\blab\s*([0-9]+)\b/);
+  const faqLabMatch = faqTextNorm.match(/\blab\s*([0-9]+)\b/);
+  if (qLabMatch && faqLabMatch && qLabMatch[1] !== faqLabMatch[1]) {
+    return true; // e.g. Lab 3 asked, but FAQ is about Lab 2
+  }
+
+  // 3. Start vs End time conflicts
+  const qHasStart = /\b(bat dau|may gio hoc|may gio vao)\b/.test(qNorm);
+  const qHasEnd = /\b(ket thuc|tan hoc|may gio xong|may gio nghi|bao gio nghi)\b/.test(qNorm);
+  const faqHasEnd = /\b(ket thuc|tan hoc|may gio xong|nghi luc)\b/.test(faqTextNorm);
+  const faqHasStart = /\b(bat dau|vao hoc)\b/.test(faqTextNorm);
+
+  if (qHasStart && faqHasEnd && !faqHasStart) return true;
+  if (qHasEnd && faqHasStart && !faqHasEnd) return true;
+
+  return false;
+}
+
 function scoreFaqMatch(text, faq) {
+  if (hasSemanticConflict(text, faq)) return 0;
+
   const normalizedText = normalizeSearchText(text);
   const questionTokens = new Set(normalizedText.split(' ').filter(Boolean));
   const terms = Array.isArray(faq.keywords) ? faq.keywords : [];

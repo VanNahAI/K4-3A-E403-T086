@@ -201,10 +201,55 @@ function setupStudentEvents() {
   });
 }
 
+let deflectionDebounceTimer = null;
+let deflectionRequestId = 0;
+
+function hasSemanticConflict(questionText, faq) {
+  if (!questionText || !faq) return false;
+  const qNorm = String(questionText || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const faqTitleNorm = String(faq.canonicalQuestion || faq.title || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const faqAnsNorm = String(faq.answer || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const faqTextNorm = `${faqTitleNorm} ${faqAnsNorm}`;
+
+  // 1. Temporal conflicts: Today vs Tomorrow vs Yesterday vs Next week
+  const qHasTomorrow = /\b(ngay mai|mai nay|hom sau|ngay tiep theo)\b/.test(qNorm) || (/\bmai\b/.test(qNorm) && !/\bmyvinuni\b/.test(qNorm) && !/\bmai vn\b/.test(qNorm));
+  const qHasToday = /\b(hom nay|bua nay|chieu nay|toi nay|sang nay)\b/.test(qNorm);
+  const qHasYesterday = /\b(hom qua|hom truoc)\b/.test(qNorm);
+  const qHasNextWeek = /\b(tuan sau|tuan toi)\b/.test(qNorm);
+
+  const faqHasToday = /\b(hom nay|bua nay|chieu nay|toi nay|sang nay)\b/.test(faqTextNorm);
+  const faqHasTomorrow = /\b(ngay mai|mai nay|hom sau)\b/.test(faqTextNorm);
+
+  if (qHasTomorrow && faqHasToday && !faqHasTomorrow) return true;
+  if (qHasYesterday && faqHasToday) return true;
+  if (qHasNextWeek && !faqTextNorm.includes('tuan sau') && !faqTextNorm.includes('tuan toi')) return true;
+
+  // 2. Lab numbering conflicts: e.g. "lab 1", "lab 2", "lab 3", "lab 4"
+  const qLabMatch = qNorm.match(/\blab\s*([0-9]+)\b/);
+  const faqLabMatch = faqTextNorm.match(/\blab\s*([0-9]+)\b/);
+  if (qLabMatch && faqLabMatch && qLabMatch[1] !== faqLabMatch[1]) {
+    return true; // e.g. Lab 3 asked, but FAQ is about Lab 2
+  }
+
+  // 3. Start vs End time conflicts
+  const qHasStart = /\b(bat dau|may gio hoc|may gio vao)\b/.test(qNorm);
+  const qHasEnd = /\b(ket thuc|tan hoc|may gio xong|may gio nghi|bao gio nghi)\b/.test(qNorm);
+  const faqHasEnd = /\b(ket thuc|tan hoc|may gio xong|nghi luc)\b/.test(faqTextNorm);
+  const faqHasStart = /\b(bat dau|vao hoc)\b/.test(faqTextNorm);
+
+  if (qHasStart && faqHasEnd && !faqHasStart) return true;
+  if (qHasEnd && faqHasStart && !faqHasEnd) return true;
+
+  return false;
+}
+
 function checkInstantDeflection(rawText) {
   const box = document.getElementById('box-deflection');
   const titleEl = document.getElementById('deflection-faq-title');
   const ansEl = document.getElementById('deflection-answer-text');
+  const badgeEl = document.getElementById('deflection-ai-badge');
+
+  if (deflectionDebounceTimer) clearTimeout(deflectionDebounceTimer);
 
   if (!rawText || rawText.trim().length < 2) {
     if (box) box.classList.add('hidden');
@@ -212,13 +257,57 @@ function checkInstantDeflection(rawText) {
   }
 
   const match = findMatchingFaq(rawText);
-  if (match) {
-    if (titleEl) titleEl.textContent = `📌 Khớp chủ đề: "${match.canonicalQuestion || match.title}"`;
-    if (ansEl) ansEl.textContent = match.answer;
-    if (box) box.classList.remove('hidden');
-  } else {
+  // Zero-latency conflict check: if student changes time (e.g. "hôm nay" -> "ngày mai"), reject immediately!
+  if (!match || hasSemanticConflict(rawText, match)) {
     if (box) box.classList.add('hidden');
+    return;
   }
+
+  // Provisional display with AI pending status
+  if (titleEl) titleEl.textContent = `📌 Khớp chủ đề: "${match.canonicalQuestion || match.title}"`;
+  if (ansEl) ansEl.textContent = match.answer;
+  if (badgeEl) {
+    badgeEl.textContent = '🤖 AI LLM đang kiểm tra...';
+    badgeEl.style.background = 'rgba(56, 189, 248, 0.18)';
+    badgeEl.style.color = '#7dd3fc';
+    badgeEl.style.border = '1px solid rgba(56, 189, 248, 0.35)';
+  }
+  if (box) box.classList.remove('hidden');
+
+  // Debounced LLM Deep Semantic Verification
+  const reqId = ++deflectionRequestId;
+  deflectionDebounceTimer = setTimeout(async () => {
+    try {
+      const resp = await fetch('/api/llm-verify-faq', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question: rawText,
+          candidateFaq: match
+        })
+      });
+      if (reqId !== deflectionRequestId) return; // Stale request
+      const data = await resp.json();
+      if (data && data.success) {
+        if (data.matched === false) {
+          // LLM caught semantic mismatch (e.g. tomorrow vs today)
+          console.log("[Student LLM Deflection] Phủ định khớp:", data.reason);
+          if (box) box.classList.add('hidden');
+        } else {
+          // LLM verified!
+          if (badgeEl) {
+            const modelName = data.model ? data.model.split('/')[1] : 'Live LLM';
+            badgeEl.textContent = `✓ AI LLM đã xác thực (${modelName})`;
+            badgeEl.style.background = 'rgba(16, 185, 129, 0.2)';
+            badgeEl.style.color = '#34d399';
+            badgeEl.style.border = '1px solid rgba(16, 185, 129, 0.4)';
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("[Student LLM Deflection check error]", e);
+    }
+  }, 350);
 }
 
 function acceptDeflectionAnswer() {
@@ -265,6 +354,8 @@ function findMatchingFaq(rawText) {
   let maxScore = 0;
 
   for (const faq of activeFaqs) {
+    if (hasSemanticConflict(rawText, faq)) continue;
+
     let score = 0;
     const title = (faq.canonicalQuestion || faq.title || '').toLowerCase();
     const answer = (faq.answer || '').toLowerCase();
