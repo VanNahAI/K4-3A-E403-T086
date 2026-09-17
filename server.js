@@ -23,6 +23,11 @@ const ZOOM_PASSCODE = String(process.env.ZOOM_PASSCODE || '').trim();
 const ZOOM_TOPIC = String(process.env.ZOOM_TOPIC || 'AI20K Workshop').trim();
 const ZOOM_SPEAKER = String(process.env.ZOOM_SPEAKER || '').trim();
 const ZOOM_WEBHOOK_SECRET_TOKEN = String(process.env.ZOOM_WEBHOOK_SECRET_TOKEN || '').trim();
+const ZOOM_OAUTH_CLIENT_ID = String(process.env.ZOOM_OAUTH_CLIENT_ID || '').trim();
+const ZOOM_OAUTH_CLIENT_SECRET = String(process.env.ZOOM_OAUTH_CLIENT_SECRET || '').trim();
+const ZOOM_OAUTH_REDIRECT_URI = String(process.env.ZOOM_OAUTH_REDIRECT_URI || '').trim();
+const ZOOM_OAUTH_SUCCESS_PATH = String(process.env.ZOOM_OAUTH_SUCCESS_PATH || '/lecturer').trim() || '/lecturer';
+const zoomOAuthGrants = new Map();
 const ZOOM_WEBHOOK_MAX_CLOCK_SKEW_SECONDS = 5 * 60;
 const configuredBodyLimit = Number(process.env.MAX_REQUEST_BODY_BYTES);
 const MAX_REQUEST_BODY_BYTES = Number.isInteger(configuredBodyLimit) && configuredBodyLimit > 0
@@ -217,6 +222,58 @@ function createZoomWebhookValidationResponse(plainToken) {
   };
 }
 
+function getZoomOAuthRedirectUri(req) {
+  if (ZOOM_OAUTH_REDIRECT_URI) return ZOOM_OAUTH_REDIRECT_URI;
+
+  const forwardedProto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
+  const protocol = forwardedProto || (req.socket.encrypted ? 'https' : 'http');
+  return `${protocol}://${req.headers.host}/api/zoom/oauth/callback`;
+}
+
+function sendHtml(res, statusCode, html) {
+  applySecurityHeaders(res);
+  res.writeHead(statusCode, {
+    'Content-Type': 'text/html; charset=UTF-8',
+    'Cache-Control': 'no-store'
+  });
+  res.end(html);
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+async function exchangeZoomAuthorizationCode(code, redirectUri) {
+  const credentials = Buffer
+    .from(`${ZOOM_OAUTH_CLIENT_ID}:${ZOOM_OAUTH_CLIENT_SECRET}`, 'utf8')
+    .toString('base64');
+  const response = await fetch('https://zoom.us/oauth/token', {
+    method: 'POST',
+    headers: {
+      Authorization: `Basic ${credentials}`,
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: new URLSearchParams({
+      grant_type: 'authorization_code',
+      code,
+      redirect_uri: redirectUri
+    })
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(String(payload.reason || payload.error || 'Zoom OAuth token exchange failed.'));
+    error.statusCode = response.status;
+    throw error;
+  }
+  return payload;
+}
+
 function formatIncomingTimestamp(value) {
   const date = value ? new Date(value) : new Date();
   if (Number.isNaN(date.getTime())) {
@@ -248,7 +305,7 @@ function sendWsAuthError(ws, message = 'Cần xác thực giảng viên hợp l�
 }
 
 // HTTP Server
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
   applySecurityHeaders(res);
   const url = new URL(req.url, `http://${req.headers.host}`);
   let pathname = url.pathname;
@@ -285,6 +342,55 @@ const server = http.createServer((req, res) => {
       simulationEnabled: ENABLE_SIMULATION,
       sessionOpen: sessionState.isOpen
     });
+    return;
+  }
+
+  // Zoom redirects users here after they approve the General App. The
+  // authorization code is exchanged server-side; tokens are never returned
+  // to the browser or written to logs.
+  if (req.method === 'GET' && pathname === '/api/zoom/oauth/callback') {
+    const oauthError = String(url.searchParams.get('error') || '').trim();
+    if (oauthError) {
+      const description = String(url.searchParams.get('error_description') || 'Người dùng chưa cấp quyền cho ứng dụng.').trim();
+      sendHtml(res, 400, `<!doctype html><meta charset="utf-8"><title>Zoom OAuth</title><p>Không thể cấp quyền Zoom: ${escapeHtml(description)}</p>`);
+      return;
+    }
+
+    const code = String(url.searchParams.get('code') || '').trim();
+    if (!code) {
+      sendHtml(res, 400, '<!doctype html><meta charset="utf-8"><title>Zoom OAuth</title><p>Thiếu mã cấp quyền Zoom.</p>');
+      return;
+    }
+
+    if (!ZOOM_OAUTH_CLIENT_ID || !ZOOM_OAUTH_CLIENT_SECRET) {
+      sendHtml(res, 503, '<!doctype html><meta charset="utf-8"><title>Zoom OAuth</title><p>Server chưa cấu hình ZOOM_OAUTH_CLIENT_ID và ZOOM_OAUTH_CLIENT_SECRET.</p>');
+      return;
+    }
+
+    const redirectUri = getZoomOAuthRedirectUri(req);
+    try {
+      const tokenPayload = await exchangeZoomAuthorizationCode(code, redirectUri);
+      // The current deployment only needs to complete the authorization flow.
+      // Keep the grant in memory for this process; persistent encrypted token
+      // storage will be added when server-side Zoom APIs are enabled.
+      const grantKey = String(tokenPayload.user_id || tokenPayload.id || Date.now());
+      zoomOAuthGrants.set(grantKey, {
+        accessToken: tokenPayload.access_token,
+        refreshToken: tokenPayload.refresh_token,
+        expiresAt: Date.now() + Number(tokenPayload.expires_in || 0) * 1000,
+        scope: tokenPayload.scope || ''
+      });
+
+      const separator = ZOOM_OAUTH_SUCCESS_PATH.includes('?') ? '&' : '?';
+      res.writeHead(303, {
+        Location: `${ZOOM_OAUTH_SUCCESS_PATH}${separator}zoom_auth=success`,
+        'Cache-Control': 'no-store'
+      });
+      res.end();
+    } catch (error) {
+      console.warn('Zoom OAuth token exchange failed:', error.message);
+      sendHtml(res, 502, '<!doctype html><meta charset="utf-8"><title>Zoom OAuth</title><p>Zoom không chấp nhận mã cấp quyền. Hãy tạo Authorization URL mới và thử lại.</p>');
+    }
     return;
   }
 
