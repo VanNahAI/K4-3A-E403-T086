@@ -21,6 +21,11 @@
   const ADMIN_PATTERNS = [
     /\b(workshop|buổi\s*học|bài\s*tập|bài\s*lab|lab|deadline|hạn\s+nộp|nộp\s+bài|điểm\s*danh|chấm\s*điểm|lịch\s*học|link\s+(zoom|học|bài)|mã\s*qr|qr|team|nhóm|giảng\s*viên|trợ\s*giảng)\b/i
   ];
+  const CLASS_CONTEXT_PATTERNS = [
+    /(?:hôm\s+nay|buổi\s+này|buổi\s+học\s+này|tiết\s+này|tiếp\s+theo)\s+(?:(?:lớp\s+mình|mình|chúng\s+ta|chúng\s+em|tụi\s+em)\s+)?(?:sẽ\s+)?(?:học|được\s+học|giảng)\s+(?:(?:nội\s+dung|chủ\s+đề|phần)\s+)?(?:gì|nào)(?=\s|[?.!,]|$)/iu,
+    /(?:đang|sẽ)\s+(?:học|giảng)(?:\s+(?:nội\s+dung|chủ\s+đề|phần))?\s+(?:gì|nào)(?=\s|[?.!,]|$)/iu,
+    /(?:nội\s+dung|chủ\s+đề|chương\s+trình)\s+(?:của\s+)?(?:hôm\s+nay|buổi\s+này|buổi\s+học\s+này)(?:\s+là)?\s+(?:gì|phần\s+nào)(?=\s|[?.!,]|$)/iu
+  ];
   const ERROR_PATTERNS = [
     /\b(error|exception|traceback|failed|failure|cannot|can't|timeout|crash|econnrefused|out\s+of\s+memory|already\s+in\s+use|permission\s+denied|not\s+found|undefined|nullpointer)\b/i,
     /\b(bị\s+lỗi|báo\s+lỗi|không\s+chạy|không\s+vào|không\s+kết\s+nối|không\s+cài|không\s+build|không\s+deploy|bị\s+kẹt|bị\s+treo|xung\s+đột\s+cổng)\b/i,
@@ -83,23 +88,25 @@
 
     const technical = hasAny(normalizedText, TECH_PATTERNS);
     const administrative = hasAny(normalizedText, ADMIN_PATTERNS);
+    const classContext = hasAny(normalizedText, CLASS_CONTEXT_PATTERNS);
     const errorLog = hasAny(original, ERROR_PATTERNS);
     const question = hasAny(normalizedText, QUESTION_PATTERNS);
     const help = hasAny(normalizedText, HELP_PATTERNS);
     if (technical) signals.push('technical_term');
     if (administrative) signals.push('workshop_admin');
+    if (classContext) signals.push('class_context');
     if (errorLog) signals.push('error_log');
     if (question) signals.push('question_word');
     if (help) signals.push('help_request');
 
-    if (errorLog || administrative || (technical && (question || help || normalizedText.length >= 18))) {
+    if (errorLog || classContext || administrative || (technical && (question || help || normalizedText.length >= 18))) {
       return result(
         startedAt,
         'allow',
-        errorLog ? 'technical_error' : administrative ? 'workshop_admin' : 'technical_question',
+        errorLog ? 'technical_error' : classContext ? 'class_agenda' : administrative ? 'workshop_admin' : 'technical_question',
         normalizedText,
         signals,
-        errorLog ? 0.98 : 0.94
+        errorLog ? 0.98 : classContext ? 0.96 : 0.94
       );
     }
 

@@ -1,18 +1,18 @@
 {
-  "generatedAt": "2026-09-17T17:00:17.971Z",
-  "total": 60,
+  "generatedAt": "2026-09-18T03:11:42.411Z",
+  "total": 68,
   "confusionMatrix": {
-    "tp": 30,
+    "tp": 35,
     "fp": 0,
-    "tn": 30,
+    "tn": 33,
     "fn": 0
   },
   "metrics": {
     "precision": 1,
     "recall": 1,
     "f1": 1,
-    "p50LatencyMs": 0.009700000000002262,
-    "p95LatencyMs": 0.863900000000001
+    "p50LatencyMs": 0.00689999999999813,
+    "p95LatencyMs": 0.6724999999999994
   },
   "requirements": {
     "pureNoiseSuppression": 1,
@@ -40,6 +40,11 @@
       "correct": 7,
       "errors": []
     },
+    "class_context": {
+      "total": 5,
+      "correct": 5,
+      "errors": []
+    },
     "pure_noise": {
       "total": 10,
       "correct": 10,
@@ -48,6 +53,11 @@
     "off_topic": {
       "total": 8,
       "correct": 8,
+      "errors": []
+    },
+    "class_context_negative": {
+      "total": 3,
+      "correct": 3,
       "errors": []
     },
     "review": {
@@ -77,7 +87,7 @@
           "question_word"
         ],
         "score": 0.94,
-        "latencyMs": 3.0167
+        "latencyMs": 3.1723
       }
     },
     {
@@ -94,7 +104,7 @@
           "question_word"
         ],
         "score": 0.94,
-        "latencyMs": 1.0929000000000002
+        "latencyMs": 0.9030000000000022
       }
     },
     {
@@ -111,7 +121,7 @@
           "question_word"
         ],
         "score": 0.94,
-        "latencyMs": 0.024200000000000443
+        "latencyMs": 0.01640000000000086
       }
     },
     {
@@ -128,7 +138,7 @@
           "question_word"
         ],
         "score": 0.94,
-        "latencyMs": 0.020799999999994156
+        "latencyMs": 0.013100000000001444
       }
     },
     {
@@ -145,7 +155,7 @@
           "question_word"
         ],
         "score": 0.94,
-        "latencyMs": 0.041399999999995885
+        "latencyMs": 0.021300000000000097
       }
     },
     {
@@ -162,7 +172,7 @@
           "question_word"
         ],
         "score": 0.94,
-        "latencyMs": 0.863900000000001
+        "latencyMs": 0.6724999999999994
       }
     },
     {
@@ -179,7 +189,7 @@
           "question_word"
         ],
         "score": 0.94,
-        "latencyMs": 0.031399999999997874
+        "latencyMs": 0.016100000000001558
       }
     },
     {
@@ -196,7 +206,7 @@
           "question_word"
         ],
         "score": 0.94,
-        "latencyMs": 0.01570000000000249
+        "latencyMs": 0.010400000000000631
       }
     },
     {
@@ -212,7 +222,7 @@
           "error_log"
         ],
         "score": 0.98,
-        "latencyMs": 0.25500000000000256
+        "latencyMs": 0.182500000000001
       }
     },
     {
@@ -229,7 +239,7 @@
           "error_log"
         ],
         "score": 0.98,
-        "latencyMs": 0.15959999999999752
+        "latencyMs": 0.1413000000000011
       }
     },
     {
@@ -246,7 +256,7 @@
           "error_log"
         ],
         "score": 0.98,
-        "latencyMs": 0.013199999999997658
+        "latencyMs": 0.012999999999998124
       }
     },
     {
@@ -263,7 +273,7 @@
           "error_log"
         ],
         "score": 0.98,
-        "latencyMs": 0.0071000000000012164
+        "latencyMs": 0.00689999999999813
       }
     },
     {
@@ -280,7 +290,7 @@
           "error_log"
         ],
         "score": 0.98,
-        "latencyMs": 0.006500000000002615
+        "latencyMs": 0.0070000000000014495
       }
     },
     {
@@ -296,7 +306,7 @@
           "error_log"
         ],
         "score": 0.98,
-        "latencyMs": 0.11370000000000147
+        "latencyMs": 0.10140000000000171
       }
     },
     {
@@ -313,7 +323,7 @@
           "error_log"
         ],
         "score": 0.98,
-        "latencyMs": 0.006799999999998363
+        "latencyMs": 0.006399999999999295
       }
     },
     {
@@ -330,7 +340,7 @@
           "error_log"
         ],
         "score": 0.98,
-        "latencyMs": 0.008000000000002672
+        "latencyMs": 0.008099999999998886
       }
     },
     {
@@ -346,7 +356,7 @@
           "workshop_admin"
         ],
         "score": 0.94,
-        "latencyMs": 0.07319999999999993
+        "latencyMs": 0.07689999999999841
       }
     },
     {
@@ -363,7 +373,7 @@
           "workshop_admin"
         ],
         "score": 0.94,
-        "latencyMs": 0.01769999999999783
+        "latencyMs": 0.010400000000000631
       }
     },
     {
@@ -379,7 +389,7 @@
           "workshop_admin"
         ],
         "score": 0.94,
-        "latencyMs": 0.008499999999997954
+        "latencyMs": 0.00829999999999842
       }
     },
     {
@@ -395,7 +405,7 @@
           "workshop_admin"
         ],
         "score": 0.94,
-        "latencyMs": 0.0071000000000012164
+        "latencyMs": 0.007199999999997431
       }
     },
     {
@@ -428,7 +438,7 @@
           "workshop_admin"
         ],
         "score": 0.94,
-        "latencyMs": 0.006199999999999761
+        "latencyMs": 0.006299999999999528
       }
     },
     {
@@ -444,7 +454,7 @@
           "workshop_admin"
         ],
         "score": 0.94,
-        "latencyMs": 0.006500000000002615
+        "latencyMs": 0.0069000000000016826
       }
     },
     {
@@ -462,7 +472,7 @@
           "question_word"
         ],
         "score": 0.98,
-        "latencyMs": 0.009799999999998477
+        "latencyMs": 0.009599999999998943
       }
     },
     {
@@ -480,7 +490,7 @@
           "question_word"
         ],
         "score": 0.98,
-        "latencyMs": 0.006199999999999761
+        "latencyMs": 0.00590000000000046
       }
     },
     {
@@ -498,7 +508,7 @@
           "question_word"
         ],
         "score": 0.98,
-        "latencyMs": 0.0049999999999954525
+        "latencyMs": 0.00560000000000116
       }
     },
     {
@@ -515,7 +525,7 @@
           "question_word"
         ],
         "score": 0.94,
-        "latencyMs": 0.006500000000002615
+        "latencyMs": 0.006800000000001916
       }
     },
     {
@@ -532,7 +542,7 @@
           "question_word"
         ],
         "score": 0.94,
-        "latencyMs": 0.00549999999999784
+        "latencyMs": 0.015200000000000102
       }
     },
     {
@@ -550,7 +560,7 @@
           "help_request"
         ],
         "score": 0.94,
-        "latencyMs": 0.00539999999999452
+        "latencyMs": 0.006000000000000227
       }
     },
     {
@@ -567,7 +577,92 @@
           "question_word"
         ],
         "score": 0.94,
+        "latencyMs": 0.006199999999999761
+      }
+    },
+    {
+      "id": "CA01",
+      "group": "class_context",
+      "expected": "allow",
+      "text": "Hôm nay học gì vậy thầy?",
+      "actual": {
+        "decision": "allow",
+        "reasonCode": "class_agenda",
+        "normalizedText": "Hôm nay học gì vậy thầy?",
+        "signals": [
+          "class_context",
+          "question_word"
+        ],
+        "score": 0.96,
+        "latencyMs": 0.005100000000002325
+      }
+    },
+    {
+      "id": "CA02",
+      "group": "class_context",
+      "expected": "allow",
+      "text": "Buổi này mình học nội dung gì?",
+      "actual": {
+        "decision": "allow",
+        "reasonCode": "class_agenda",
+        "normalizedText": "Buổi này mình học nội dung gì?",
+        "signals": [
+          "class_context",
+          "question_word"
+        ],
+        "score": 0.96,
+        "latencyMs": 0.00590000000000046
+      }
+    },
+    {
+      "id": "CA03",
+      "group": "class_context",
+      "expected": "allow",
+      "text": "Thầy đang giảng phần nào vậy?",
+      "actual": {
+        "decision": "allow",
+        "reasonCode": "class_agenda",
+        "normalizedText": "đang giảng phần nào vậy?",
+        "signals": [
+          "class_context",
+          "question_word"
+        ],
+        "score": 0.96,
         "latencyMs": 0.0058000000000006935
+      }
+    },
+    {
+      "id": "CA04",
+      "group": "class_context",
+      "expected": "allow",
+      "text": "Tiếp theo lớp mình học gì?",
+      "actual": {
+        "decision": "allow",
+        "reasonCode": "class_agenda",
+        "normalizedText": "Tiếp theo lớp mình học gì?",
+        "signals": [
+          "class_context",
+          "question_word"
+        ],
+        "score": 0.96,
+        "latencyMs": 0.004899999999999238
+      }
+    },
+    {
+      "id": "CA05",
+      "group": "class_context",
+      "expected": "allow",
+      "text": "Chủ đề hôm nay là gì ạ?",
+      "actual": {
+        "decision": "allow",
+        "reasonCode": "class_agenda",
+        "normalizedText": "Chủ đề hôm nay là gì ạ?",
+        "signals": [
+          "class_context",
+          "question_word"
+        ],
+        "score": 0.96,
+        "latencyMs": 0.010500000000000398
       }
     },
     {
@@ -583,7 +678,7 @@
           "pure_greeting"
         ],
         "score": 0.99,
-        "latencyMs": 0.5805000000000007
+        "latencyMs": 0.438600000000001
       }
     },
     {
@@ -599,7 +694,7 @@
           "pure_greeting"
         ],
         "score": 0.99,
-        "latencyMs": 0.2972999999999999
+        "latencyMs": 0.17849999999999966
       }
     },
     {
@@ -615,7 +710,7 @@
           "courtesy"
         ],
         "score": 0.99,
-        "latencyMs": 0.04079999999999728
+        "latencyMs": 0.00730000000000075
       }
     },
     {
@@ -631,7 +726,7 @@
           "courtesy"
         ],
         "score": 0.99,
-        "latencyMs": 0.004200000000004422
+        "latencyMs": 0.0033999999999991815
       }
     },
     {
@@ -647,7 +742,7 @@
           "courtesy"
         ],
         "score": 0.99,
-        "latencyMs": 0.18469999999999942
+        "latencyMs": 0.12110000000000198
       }
     },
     {
@@ -663,7 +758,7 @@
           "courtesy"
         ],
         "score": 0.99,
-        "latencyMs": 0.011299999999998533
+        "latencyMs": 0.006599999999998829
       }
     },
     {
@@ -679,7 +774,7 @@
           "courtesy"
         ],
         "score": 0.99,
-        "latencyMs": 0.006100000000003547
+        "latencyMs": 0.0036999999999984823
       }
     },
     {
@@ -695,7 +790,7 @@
           "reaction"
         ],
         "score": 0.99,
-        "latencyMs": 0.006700000000002149
+        "latencyMs": 0.004300000000000637
       }
     },
     {
@@ -711,7 +806,7 @@
           "reaction"
         ],
         "score": 0.99,
-        "latencyMs": 0.06320000000000192
+        "latencyMs": 0.007699999999999818
       }
     },
     {
@@ -727,7 +822,7 @@
           "reaction"
         ],
         "score": 0.99,
-        "latencyMs": 0.018599999999999284
+        "latencyMs": 0.002600000000001046
       }
     },
     {
@@ -744,7 +839,7 @@
           "off_topic"
         ],
         "score": 0.93,
-        "latencyMs": 1.0703999999999994
+        "latencyMs": 0.7435000000000009
       }
     },
     {
@@ -761,7 +856,7 @@
           "off_topic"
         ],
         "score": 0.93,
-        "latencyMs": 0.5056999999999974
+        "latencyMs": 0.2414999999999985
       }
     },
     {
@@ -778,7 +873,7 @@
           "off_topic"
         ],
         "score": 0.93,
-        "latencyMs": 0.02109999999999701
+        "latencyMs": 0.00859999999999772
       }
     },
     {
@@ -795,7 +890,7 @@
           "off_topic"
         ],
         "score": 0.93,
-        "latencyMs": 0.05719999999999459
+        "latencyMs": 0.008199999999998653
       }
     },
     {
@@ -811,7 +906,7 @@
           "out_of_scope"
         ],
         "score": 0.86,
-        "latencyMs": 0.467800000000004
+        "latencyMs": 0.29739999999999966
       }
     },
     {
@@ -828,7 +923,7 @@
           "off_topic"
         ],
         "score": 0.93,
-        "latencyMs": 0.013700000000000045
+        "latencyMs": 0.006799999999998363
       }
     },
     {
@@ -844,7 +939,7 @@
           "out_of_scope"
         ],
         "score": 0.86,
-        "latencyMs": 0.018200000000000216
+        "latencyMs": 0.010300000000000864
       }
     },
     {
@@ -861,7 +956,58 @@
           "off_topic"
         ],
         "score": 0.93,
-        "latencyMs": 0.008599999999994168
+        "latencyMs": 0.005300000000001859
+      }
+    },
+    {
+      "id": "OT09",
+      "group": "class_context_negative",
+      "expected": "filter",
+      "text": "Hôm nay ăn gì?",
+      "actual": {
+        "decision": "filter",
+        "reasonCode": "off_topic",
+        "normalizedText": "Hôm nay ăn gì?",
+        "signals": [
+          "question_word",
+          "off_topic"
+        ],
+        "score": 0.93,
+        "latencyMs": 0.003999999999997783
+      }
+    },
+    {
+      "id": "OT10",
+      "group": "class_context_negative",
+      "expected": "filter",
+      "text": "Học xong đi đâu chơi?",
+      "actual": {
+        "decision": "filter",
+        "reasonCode": "off_topic",
+        "normalizedText": "Học xong đi đâu chơi?",
+        "signals": [
+          "question_word",
+          "off_topic"
+        ],
+        "score": 0.93,
+        "latencyMs": 0.0045999999999999375
+      }
+    },
+    {
+      "id": "OT11",
+      "group": "class_context_negative",
+      "expected": "filter",
+      "text": "Thầy đang xem phim gì?",
+      "actual": {
+        "decision": "filter",
+        "reasonCode": "off_topic",
+        "normalizedText": "đang xem phim gì?",
+        "signals": [
+          "question_word",
+          "off_topic"
+        ],
+        "score": 0.93,
+        "latencyMs": 0.004899999999999238
       }
     },
     {
@@ -877,7 +1023,7 @@
           "too_short"
         ],
         "score": 0.62,
-        "latencyMs": 0.008900000000004127
+        "latencyMs": 0.006000000000000227
       }
     },
     {
@@ -894,7 +1040,7 @@
           "missing_context"
         ],
         "score": 0.62,
-        "latencyMs": 0.009000000000000341
+        "latencyMs": 0.00590000000000046
       }
     },
     {
@@ -911,7 +1057,7 @@
           "missing_context"
         ],
         "score": 0.62,
-        "latencyMs": 0.0071000000000012164
+        "latencyMs": 0.004699999999999704
       }
     },
     {
@@ -927,7 +1073,7 @@
           "missing_context"
         ],
         "score": 0.62,
-        "latencyMs": 0.010599999999996612
+        "latencyMs": 0.006700000000002149
       }
     },
     {
@@ -944,7 +1090,7 @@
           "missing_context"
         ],
         "score": 0.62,
-        "latencyMs": 0.006799999999998363
+        "latencyMs": 0.005099999999998772
       }
     },
     {
@@ -962,7 +1108,7 @@
           "ambiguous_request"
         ],
         "score": 0.62,
-        "latencyMs": 0.008800000000000807
+        "latencyMs": 0.006000000000000227
       }
     },
     {
@@ -978,7 +1124,7 @@
           "prompt_injection"
         ],
         "score": 1,
-        "latencyMs": 0.009700000000002262
+        "latencyMs": 0.00969999999999871
       }
     },
     {
@@ -994,7 +1140,7 @@
           "prompt_injection"
         ],
         "score": 1,
-        "latencyMs": 0.007199999999997431
+        "latencyMs": 0.004300000000000637
       }
     },
     {
@@ -1010,7 +1156,7 @@
           "prompt_injection"
         ],
         "score": 1,
-        "latencyMs": 0.005699999999997374
+        "latencyMs": 0.003800000000001802
       }
     },
     {
@@ -1026,7 +1172,7 @@
           "prompt_injection"
         ],
         "score": 1,
-        "latencyMs": 0.005900000000004013
+        "latencyMs": 0.0036999999999984823
       }
     },
     {
@@ -1042,7 +1188,7 @@
           "prompt_injection"
         ],
         "score": 1,
-        "latencyMs": 0.004699999999999704
+        "latencyMs": 0.002600000000001046
       }
     },
     {
@@ -1058,7 +1204,7 @@
           "prompt_injection"
         ],
         "score": 1,
-        "latencyMs": 0.0040000000000048885
+        "latencyMs": 0.002200000000001978
       }
     }
   ]

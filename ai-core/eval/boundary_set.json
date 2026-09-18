@@ -33,6 +33,12 @@
   {"id":"MX06","group":"mixed_greeting","expected":"allow","text":"Dạ cô ơi cho em hỏi cách cài CVAT với Docker?"},
   {"id":"MX07","group":"mixed_greeting","expected":"allow","text":"Hi thầy, model Qwen có hỗ trợ JSON mode không?"},
 
+  {"id":"CA01","group":"class_context","expected":"allow","text":"Hôm nay học gì vậy thầy?"},
+  {"id":"CA02","group":"class_context","expected":"allow","text":"Buổi này mình học nội dung gì?"},
+  {"id":"CA03","group":"class_context","expected":"allow","text":"Thầy đang giảng phần nào vậy?"},
+  {"id":"CA04","group":"class_context","expected":"allow","text":"Tiếp theo lớp mình học gì?"},
+  {"id":"CA05","group":"class_context","expected":"allow","text":"Chủ đề hôm nay là gì ạ?"},
+
   {"id":"NO01","group":"pure_noise","expected":"filter","text":"Chào thầy ạ"},
   {"id":"NO02","group":"pure_noise","expected":"filter","text":"Hello mọi người"},
   {"id":"NO03","group":"pure_noise","expected":"filter","text":"Cảm ơn thầy"},
@@ -52,6 +58,9 @@
   {"id":"OT06","group":"off_topic","expected":"filter","text":"Thầy bao nhiêu tuổi?"},
   {"id":"OT07","group":"off_topic","expected":"filter","text":"Cho em xin số xổ số hôm nay"},
   {"id":"OT08","group":"off_topic","expected":"filter","text":"Ca sĩ này quê ở đâu?"},
+  {"id":"OT09","group":"class_context_negative","expected":"filter","text":"Hôm nay ăn gì?"},
+  {"id":"OT10","group":"class_context_negative","expected":"filter","text":"Học xong đi đâu chơi?"},
+  {"id":"OT11","group":"class_context_negative","expected":"filter","text":"Thầy đang xem phim gì?"},
 
   {"id":"RV01","group":"review","expected":"review","text":"Em chưa hiểu"},
   {"id":"RV02","group":"review","expected":"review","text":"Phần này sao vậy ạ?"},
