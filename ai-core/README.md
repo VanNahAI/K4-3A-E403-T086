@@ -9,11 +9,15 @@ The intelligent engine powering the **Workshop Question Curator** platform. Resp
 ```text
 ai-core/
 ├── ai_engine.js          # Unified AI Engine (Semantic NLP + OpenRouter/Ollama LLM)
+├── message_boundary.js   # Deterministic allow/filter/review/block admission gate
+├── qwen_proxy.js         # Server-only Qwen3 proxy, cache, warm-up and telemetry
 ├── mock_engine.js        # Deterministic engine for offline regression testing
 ├── test_llm.js           # CLI tester for live OpenRouter model clustering & latency
 ├── eval/
 │   ├── golden_set.json   # 24 test cases covering 4 difficulty layers
 │   ├── run_eval.js       # Automated evaluation benchmark runner
+│   ├── run_boundary_eval.js # 60-case boundary benchmark
+│   ├── benchmark_qwen.js # Real warm-latency benchmark (requires .env)
 │   ├── test_realtime_e2e.js # Dual-role WebSocket end-to-end test
 │   └── eval_results_run1.md # Latest benchmark results (87.5% passed)
 ├── AGENTS.md             # Developer & AI Agent coding rules for this module
@@ -78,4 +82,10 @@ node ai-core/eval/run_eval.js
 
 # Run the WebSocket Realtime E2E test
 node ai-core/eval/test_realtime_e2e.js
+
+# Boundary quality and latency gates
+npm run test:boundary
+
+# Real Qwen3 warm benchmark (requires QWEN_API_KEY)
+npm run benchmark:qwen
 ```

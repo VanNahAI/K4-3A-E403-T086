@@ -451,23 +451,10 @@
     }
 
     function openCompanionWindow(role, name, id) {
-      const pipUrl = `/pip?role=${encodeURIComponent(role)}&name=${encodeURIComponent(name)}&id=${encodeURIComponent(id)}`;
-      const width = role === 'student'
-        ? Math.min(900, window.screen.availWidth - 40)
-        : 430;
-      const height = Math.min(720, window.screen.availHeight - 80);
-      const left = window.screen.availWidth - width - 20;
-      const top = 40;
-
-      window.open(
-        pipUrl, 
-        'CuratorAI_PiP', 
-        `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,status=no`
-      );
-
-      setTimeout(() => {
-        openSimulatedRoom(role, name, id);
-      }, 500);
+      // The room embeds the companion and owns its Document PiP window. This
+      // avoids leaving an extra regular popup behind after the companion is
+      // pinned and lets the embedded Pin button work with a single click.
+      openSimulatedRoom(role, name, id);
     }
 
     function joinAsStudent() {
@@ -476,13 +463,13 @@
       const appearanceName = computeAppearanceName(name, id);
       // Test mode intentionally stays inside the local simulated Zoom room.
       // The configured external Zoom URL is not opened here.
-      openSimulatedRoom('student', appearanceName, id);
+      openCompanionWindow('student', appearanceName, id);
     }
 
     function joinAsLecturer() {
       // Opening the lecturer room starts a fresh local test session. It also
       // resets the server's FAQ/question store before students can join.
-      openSimulatedRoom('lecturer', 'TS. Nguyễn Thành Nhân (Host)', 'HOST');
+      openCompanionWindow('lecturer', 'TS. Nguyễn Thành Nhân (Host)', 'HOST');
     }
 
     async function promptEditZoom() {

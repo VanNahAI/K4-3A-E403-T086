@@ -4,13 +4,16 @@
   "description": "**SPEC → Prototype → Demo.** Đây không phải cuộc thi code — đây là cuộc thi **tư duy sản phẩm AI**.",
   "main": "index.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "node --env-file-if-exists=.env server.js",
     "test": "node ai-core/eval/run_eval.js",
     "test:e2e": "node ai-core/eval/test_realtime_e2e.js",
     "test:realtime": "node ai-core/eval/test_realtime_e2e.js",
     "test:clustering": "node ai-core/eval/test_clustering_regressions.js",
     "test:llm": "node ai-core/test_llm.js",
     "test:cp3": "node ai-core/eval/run_cp3_eval.js",
+    "test:ai-proxy": "node ai-core/eval/test_qwen_proxy.js",
+    "test:boundary": "node ai-core/eval/run_boundary_eval.js",
+    "benchmark:qwen": "node --env-file-if-exists=.env ai-core/eval/benchmark_qwen.js",
     "demo:30s": "node scripts/simulate_cp3_30s.js"
   },
   "repository": {

@@ -174,24 +174,27 @@ function scoreKnowledgeBaseMatch(text, knowledgeItem) {
 }
 
 class UnifiedAIEngine {
-  constructor() {
-    // OpenRouter / Model Config
-    this.provider = (typeof localStorage !== 'undefined' && localStorage.getItem('curator_provider')) || 'openrouter'; // 'openrouter', 'ollama', 'mock'
-    this.openRouterKey = (typeof localStorage !== 'undefined' && localStorage.getItem('curator_openrouter_key')) || (typeof process !== 'undefined' && process.env.OPENROUTER_API_KEY) || '';
+  constructor(options = {}) {
+    const localStore = typeof localStorage !== 'undefined' ? localStorage : null;
+    this.provider = options.provider || (localStore && localStore.getItem('curator_provider')) || 'openrouter'; // 'openrouter', 'ollama', 'mock', 'backend-qwen'
+    this.openRouterKey = options.openRouterKey || (localStore && localStore.getItem('curator_openrouter_key')) || (typeof process !== 'undefined' && process.env.OPENROUTER_API_KEY) || '';
     
-    let storedModel = (typeof localStorage !== 'undefined' && localStorage.getItem('curator_openrouter_model')) || '';
+    let storedModel = (localStore && localStore.getItem('curator_openrouter_model')) || '';
     if (!storedModel || storedModel.includes('gemini-2.0-flash')) {
       storedModel = 'nex-agi/nex-n2.5-mini:free';
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('curator_openrouter_model', storedModel);
+      if (localStore) {
+        localStore.setItem('curator_openrouter_model', storedModel);
       }
     }
-    this.openRouterModel = (typeof process !== 'undefined' && process.env.OPENROUTER_MODEL) || storedModel;
+    this.openRouterModel = options.openRouterModel || (typeof process !== 'undefined' && process.env.OPENROUTER_MODEL) || storedModel;
 
-    this.ollamaUrl = 'http://localhost:11434/v1';
-    this.ollamaModel = 'qwen2.5:3b-instruct';
+    this.ollamaUrl = options.ollamaUrl || 'http://localhost:11434/v1';
+    this.ollamaModel = options.ollamaModel || 'qwen2.5:3b-instruct';
+    this.backendClassifierUrl = options.backendClassifierUrl || '/api/ai/classify';
+    this.strictLlm = options.strictLlm === true;
     this.isLiveLLM = false;
     this.lastModelUsed = '';
+    this.lastModelName = '';
     this.serverHasKey = false;
 
     // Auto-sync server config in browser
@@ -357,9 +360,51 @@ class UnifiedAIEngine {
   /**
    * Semantic Analysis using OpenRouter / LLM (Server Proxy & Direct Fallback)
    */
-  async analyzeWithLLM(text, existingClusters) {
+  async analyzeWithLLM(text, existingClusters, metadata = {}) {
     if (this.provider === 'mock') {
       return null;
+    }
+
+    if (this.provider === 'backend-qwen') {
+      try {
+        const response = await fetch(this.backendClassifierUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            questionId: metadata.id || `LOCAL_${Date.now()}`,
+            question: text,
+            clusters: existingClusters.map((cluster) => ({
+              id: cluster.id,
+              title: cluster.title,
+              keywords: Array.isArray(cluster.keywords) ? cluster.keywords : [],
+              count: Number(cluster.count) || 0
+            })),
+            forceBoundary: metadata.forceBoundary === true
+          })
+        });
+
+        let payload = null;
+        try {
+          payload = await response.json();
+        } catch (error) {}
+
+        if (!response.ok || !payload?.ok || !payload.result) {
+          const requestError = new Error(payload?.error?.message || `Qwen3 backend error (${response.status})`);
+          requestError.code = payload?.error?.code || 'QWEN_BACKEND_ERROR';
+          requestError.status = response.status;
+          throw requestError;
+        }
+
+        this.lastLatencyMs = Number(payload.meta?.latencyMs) || 0;
+        this.lastTokensUsed = Number(payload.meta?.tokensUsed) || 0;
+        this.lastModelName = payload.meta?.model || 'Qwen3';
+        this.lastCacheHit = payload.meta?.cacheHit === true;
+        return payload.result;
+      } catch (error) {
+        console.warn('Backend Qwen3 classification failed:', error.message);
+        if (this.strictLlm) throw error;
+        return null;
+      }
     }
 
     // 1. Try Server-Side LLM Proxy if running in browser
@@ -397,6 +442,7 @@ class UnifiedAIEngine {
     if (!effectiveKey && this.provider !== 'ollama') {
       return null;
     }
+
 
     const clustersSummary = existingClusters.map(c => `- [ID: ${c.id}] "${c.title}" (từ khóa: ${(c.keywords || []).join(', ')})`).join('\n');
 
@@ -447,9 +493,9 @@ Chỉ trả về định dạng JSON thuần túy (không kèm giải thích hay
    * Process incoming student message with 4 difficulty layers
    * and Instant Echo-Reply matching.
    */
-  async processMessage(rawText, author = null) {
+  async processMessage(rawText, author = null, metadata = {}) {
     this.messageIdCounter++;
-    const msgId = `M${this.messageIdCounter}`;
+    const msgId = metadata.id || `M${this.messageIdCounter}`;
     const timestamp = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     const user = author || `S${Math.floor(1000 + Math.random() * 9000)}`;
 
@@ -461,7 +507,9 @@ Chỉ trả về định dạng JSON thuần túy (không kèm giải thích hay
       rawTimestampMs: Date.now()
     };
 
-    this.messages.unshift(msgObj);
+    if (!this.messages.some((message) => message.id === msgId)) {
+      this.messages.unshift(msgObj);
+    }
     const lower = rawText.toLowerCase().trim();
 
     // =========================================================================
@@ -473,7 +521,7 @@ Chỉ trả về định dạng JSON thuần túy (không kèm giải thích hay
       "xóa tất cả", "chiếm quyền", "đóng vai hacker",
       "override lecturer answer"
     ];
-    if (injectionPatterns.some(p => lower.includes(p))) {
+    if (!metadata.boundaryChecked && injectionPatterns.some(p => lower.includes(p))) {
       const item = {
         ...msgObj,
         reason: "Phát hiện Prompt Injection / Tấn công hệ thống (Layer ③)",
@@ -487,11 +535,11 @@ Chỉ trả về định dạng JSON thuần túy (không kèm giải thích hay
     // =========================================================================
     // LAYER ③ CHECK: Greetings, Casual Banter, Off-Topic Spam
     // =========================================================================
-    if (
+    if (!metadata.boundaryChecked && (
       lower.startsWith("chào") || lower.startsWith("hello") || lower.startsWith("hi ") ||
       lower.includes("ăn cơm chưa") || lower.includes("đi vệ sinh") || lower.includes("chúc buổi học") ||
       lower === "." || lower === "..." || lower === "alo" || lower === "test" || lower.length < 2
-    ) {
+    )) {
       const item = {
         ...msgObj,
         reason: "Tin nhắn chào hỏi / Ngoài phạm vi học thuật (Layer ③)",
@@ -526,13 +574,15 @@ Chỉ trả về định dạng JSON thuần túy (không kèm giải thích hay
     // "sao lại trừ 20% vậy ạ" go to review queue, not echo-replied.
     // =========================================================================
     if (
-      rawText.length < 12 ||
-      lower === "thầy ơi em chưa hiểu" ||
-      lower.includes("nói lại đi") ||
-      lower === "?" ||
-      lower === "hả" ||
-      lower === "chưa hiểu lắm ạ" ||
-      isContextDependentFollowUp(rawText)
+      !metadata?.boundaryChecked && (
+        rawText.length < 12 ||
+        lower === "thầy ơi em chưa hiểu" ||
+        lower.includes("nói lại đi") ||
+        lower === "?" ||
+        lower === "hả" ||
+        lower === "chưa hiểu lắm ạ" ||
+        isContextDependentFollowUp(rawText)
+      )
     ) {
       const item = {
         ...msgObj,
@@ -563,6 +613,7 @@ Chỉ trả về định dạng JSON thuần túy (không kèm giải thích hay
     }
 
     // =========================================================================
+    // =========================================================================
     // LAYER ④ & SEMANTIC CLUSTERING (LLM & Semantic NLP)
     // =========================================================================
     let matchedCluster = null;
@@ -570,11 +621,16 @@ Chỉ trả về định dạng JSON thuần túy (không kèm giải thích hay
 
     // 1. Attempt LLM analysis if provider active
     this.isLiveLLM = false;
-    const llmResult = await this.analyzeWithLLM(rawText, this.clusters);
-    const modelBadge = this.isLiveLLM
+    const llmResult = await this.analyzeWithLLM(rawText, this.clusters, metadata);
+    let modelBadge = this.isLiveLLM
       ? `OpenRouter (${(this.lastModelUsed || this.openRouterModel).split('/')[1] || 'Live LLM'})`
       : `AI Engine (Semantic NLP)`;
-    const latencyText = this.lastLatencyMs ? `${this.lastLatencyMs}ms` : `~15ms`;
+    let latencyText = this.lastLatencyMs ? `${this.lastLatencyMs}ms` : `~15ms`;
+
+    if (this.provider === 'backend-qwen' && llmResult) {
+      modelBadge = this.lastModelName || 'Qwen3';
+      latencyText = this.lastLatencyMs ? `${(this.lastLatencyMs / 1000).toFixed(2)}s` : 'Qwen3';
+    }
 
     if (llmResult && (llmResult.matchedClusterId || llmResult.matchedTitle)) {
       const targetId = String(llmResult.matchedClusterId || '').replace(/[\[\]]/g, '').trim();
@@ -595,7 +651,7 @@ Chỉ trả về định dạng JSON thuần túy (không kèm giải thích hay
     }
 
     // 2. If no LLM match, perform local semantic matching
-    if (!matchedCluster) {
+    if (!matchedCluster && !(this.provider === 'backend-qwen' && llmResult)) {
       for (const cl of this.clusters) {
         const score = scoreExistingClusterMatch(rawText, cl);
         if (score > maxScore) {

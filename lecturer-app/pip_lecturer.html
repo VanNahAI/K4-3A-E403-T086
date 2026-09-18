@@ -87,6 +87,8 @@
       font-size: 0.72rem;
       cursor: pointer;
       font-weight: 600;
+      min-width: 44px;
+      min-height: 44px;
     }
 
     .btn-pip-icon:hover {
@@ -237,7 +239,7 @@
     /* Lecturer Compact Cockpit */
     .pip-metric-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(3, 1fr);
       gap: 6px;
       margin-bottom: 12px;
     }
@@ -260,6 +262,102 @@
       font-size: 0.95rem;
       color: #fff;
     }
+
+    .pip-kpi-button { cursor: pointer; font: inherit; color: inherit; width: 100%; }
+    .pip-metric-strip {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      margin: -4px 0 12px;
+      color: #94a3b8;
+      font-size: 0.66rem;
+      text-align: center;
+    }
+    .pip-metric-strip strong { color: #e2e8f0; display: block; margin-top: 2px; }
+    .pip-review-drawer { margin-bottom: 12px; padding: 10px; border: 1px solid #f59e0b; border-radius: 10px; background: #1c1917; }
+    .pip-review-head { display: flex; justify-content: space-between; color: #fbbf24; font-size: 0.76rem; font-weight: 800; }
+    .pip-review-head button { background: none; border: 0; color: #fbbf24; cursor: pointer; }
+    .pip-review-list { max-height: 240px; overflow-y: auto; margin-top: 8px; }
+    .pip-review-item { padding: 8px; margin-bottom: 7px; border-radius: 8px; background: #0f172a; }
+    .pip-review-item strong, .pip-review-item small { color: #94a3b8; font-size: 0.68rem; }
+    .pip-review-item p { margin: 4px 0; color: #f8fafc; font-size: 0.76rem; line-height: 1.35; }
+    .pip-review-actions { display: flex; gap: 6px; margin-top: 7px; }
+    .pip-review-actions button { min-height: 34px; border: 0; border-radius: 6px; padding: 5px 8px; background: #6366f1; color: white; cursor: pointer; }
+    .pip-review-actions button.secondary { background: #334155; }
+    .pip-review-empty { padding: 12px; text-align: center; color: #94a3b8; font-size: 0.72rem; }
+
+    .pip-ai-status {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+      padding: 10px 12px;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      background: #0f172a;
+    }
+
+    .pip-ai-status[data-state="ready"] { border-color: rgba(52, 211, 153, 0.45); }
+    .pip-ai-status[data-state="processing"] { border-color: rgba(56, 189, 248, 0.55); }
+    .pip-ai-status[data-state="paused"] {
+      border-color: rgba(248, 113, 113, 0.6);
+      background: rgba(127, 29, 29, 0.16);
+    }
+
+    .pip-ai-status-main {
+      min-width: 0;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .pip-ai-status-dot {
+      width: 9px;
+      height: 9px;
+      margin-top: 4px;
+      border-radius: 50%;
+      flex: 0 0 auto;
+      background: #94a3b8;
+    }
+
+    [data-state="ready"] .pip-ai-status-dot { background: #34d399; }
+    [data-state="processing"] .pip-ai-status-dot {
+      background: #38bdf8;
+      animation: pulse 1.2s infinite;
+    }
+    [data-state="paused"] .pip-ai-status-dot { background: #f87171; }
+
+    .pip-ai-status-copy strong {
+      display: block;
+      color: #f8fafc;
+      font-size: 0.78rem;
+      line-height: 1.3;
+    }
+
+    .pip-ai-status-copy small {
+      display: block;
+      margin-top: 2px;
+      color: #94a3b8;
+      font-size: 0.68rem;
+      line-height: 1.35;
+    }
+
+    .btn-ai-retry {
+      min-height: 44px;
+      flex: 0 0 auto;
+      padding: 7px 10px;
+      border: 1px solid #f87171;
+      border-radius: 7px;
+      background: rgba(239, 68, 68, 0.18);
+      color: #fecaca;
+      font: inherit;
+      font-size: 0.72rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .btn-ai-retry:disabled { opacity: 0.6; cursor: wait; }
 
     .pip-cluster-card {
       background: #131b2e;
@@ -417,10 +515,13 @@
       </div>
     </div>
     <div class="pip-controls">
+      <button class="btn-pip-icon" id="btn-pin-companion" onclick="pinCompanionWindow()" title="Ghim trợ lý luôn trên màn hình">
+        📌 Ghim
+      </button>
       <button class="btn-pip-icon" onclick="openFullscreenStage()" title="Mở phòng Zoom toàn màn hình">
         🖥️ Zoom Tab
       </button>
-      <button class="btn-pip-icon" onclick="window.close()" title="Đóng cửa sổ">
+      <button class="btn-pip-icon" onclick="closeCompanionWindow()" title="Đóng cửa sổ">
         ✕
       </button>
     </div>
@@ -508,26 +609,61 @@
          LECTURER HOST VIEW (COCKPIT IN PIP)
          ===================================================================== -->
     <section id="pip-lecturer-container" class="hidden">
+
+      <div id="pip-ai-status" class="pip-ai-status" data-state="connecting">
+        <div class="pip-ai-status-main">
+          <span class="pip-ai-status-dot" aria-hidden="true"></span>
+          <div class="pip-ai-status-copy">
+            <strong id="pip-ai-status-title">Đang kết nối Qwen3...</strong>
+            <small id="pip-ai-status-detail">Kiểm tra model phân loại trên backend.</small>
+          </div>
+        </div>
+        <button id="btn-ai-retry" class="btn-ai-retry hidden" type="button" onclick="retryAiPipeline()">
+          Thử lại
+        </button>
+      </div>
       
       <!-- KPI Status -->
       <div class="pip-metric-grid">
         <div class="pip-kpi">
-          <span>HV Online</span>
-          <strong id="pip-lec-online" style="color: #38bdf8;">0</strong>
-        </div>
-        <div class="pip-kpi">
-          <span>Tin nhắn</span>
+          <span>Tin nhận</span>
           <strong id="pip-lec-msgs">0</strong>
         </div>
         <div class="pip-kpi">
-          <span>Cụm câu hỏi</span>
-          <strong id="pip-lec-clusters" style="color: #6366f1;">0</strong>
+          <span>Cho phép</span>
+          <strong id="pip-metric-allow" style="color: #34d399;">0</strong>
         </div>
         <div class="pip-kpi">
-          <span>Tự động trả lời</span>
-          <strong id="pip-lec-echo" style="color: #34d399;">0</strong>
+          <span>Đã lọc</span>
+          <strong id="pip-metric-filter" style="color: #94a3b8;">0</strong>
+        </div>
+        <button class="pip-kpi pip-kpi-button" type="button" onclick="toggleReviewDrawer()">
+          <span>Cần duyệt</span>
+          <strong id="pip-metric-review" style="color: #fbbf24;">0</strong>
+        </button>
+        <div class="pip-kpi">
+          <span>Đã chặn</span>
+          <strong id="pip-metric-block" style="color: #f87171;">0</strong>
+        </div>
+        <div class="pip-kpi">
+          <span>Qwen requests</span>
+          <strong id="pip-metric-qwen" style="color: #38bdf8;">0</strong>
         </div>
       </div>
+
+      <div class="pip-metric-strip">
+        <div>Gate p95<strong id="pip-gate-p95">0.00 ms</strong></div>
+        <div>Qwen p95<strong id="pip-qwen-p95">—</strong></div>
+        <div>Calls saved<strong id="pip-calls-saved">0%</strong></div>
+      </div>
+
+      <aside id="pip-review-drawer" class="pip-review-drawer hidden">
+        <div class="pip-review-head">
+          <span>TIN NHẮN CẦN DUYỆT</span>
+          <button type="button" onclick="toggleReviewDrawer(false)">Đóng</button>
+        </div>
+        <div id="pip-review-list" class="pip-review-list"></div>
+      </aside>
 
       <!-- Velocity Spike Alert (Cháy chat radar) -->
       <div id="pip-radar-alert" class="pip-deflection-card hidden" style="background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.4);">
@@ -608,7 +744,9 @@
     <button style="background: none; border: none; color: #ecfdf5; font-weight: bold; cursor: pointer;" onclick="document.getElementById('pip-toast').classList.add('hidden')">✕</button>
   </div>
 
+  <script src="/ai-core/message_boundary.js"></script>
   <script src="/ai-core/ai_engine.js"></script>
   <script src="pip_lecturer.js"></script>
+  <script src="/pip_window_manager.js"></script>
 </body>
 </html>

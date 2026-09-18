@@ -11,6 +11,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { WebSocketServer, WebSocket } = require('ws');
+const { createQwenProxy, QwenProxyError } = require('./ai-core/qwen_proxy');
 
 // Automatically load .env file if present
 function loadEnv() {
@@ -38,6 +39,74 @@ loadEnv();
 
 const PORT = process.env.PORT || 3000;
 const CODEBASE_DIR = path.join(__dirname, 'codebase');
+const qwenProxy = createQwenProxy();
+
+function sendJson(res, statusCode, payload) {
+  res.writeHead(statusCode, { 'Content-Type': 'application/json; charset=UTF-8' });
+  res.end(JSON.stringify(payload));
+}
+
+function readJsonBody(req, maxBytes = 32768) {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    let bodyTooLarge = false;
+
+    req.on('data', (chunk) => {
+      if (bodyTooLarge) return;
+      body += chunk;
+      if (Buffer.byteLength(body, 'utf8') > maxBytes) {
+        bodyTooLarge = true;
+        reject(new QwenProxyError('Request body quá lớn.', 413, 'REQUEST_TOO_LARGE'));
+      }
+    });
+    req.on('end', () => {
+      if (bodyTooLarge) return;
+      try {
+        resolve(body ? JSON.parse(body) : {});
+      } catch (error) {
+        reject(new QwenProxyError('Request body không phải JSON hợp lệ.', 400, 'INVALID_JSON'));
+      }
+    });
+    req.on('error', reject);
+  });
+}
+
+function sendQwenError(res, error) {
+  const knownError = error instanceof QwenProxyError;
+  const statusCode = knownError ? error.statusCode : 500;
+  const code = knownError ? error.code : 'INTERNAL_ERROR';
+  const message = knownError ? error.message : 'Backend không thể xử lý yêu cầu AI.';
+  console.warn(`[Qwen Proxy] ${code}: ${message}`);
+  const boundary = knownError && error.boundary ? error.boundary : undefined;
+  sendJson(res, statusCode, { ok: false, error: { code, message, ...(boundary ? { boundary } : {}) } });
+}
+
+async function handleQwenHealth(res) {
+  try {
+    const status = await qwenProxy.health();
+    sendJson(res, 200, { ok: true, ...status });
+  } catch (error) {
+    sendQwenError(res, error);
+  }
+}
+
+async function handleQwenClassification(req, res) {
+  try {
+    const payload = await readJsonBody(req);
+    const result = await qwenProxy.classify(payload);
+    sendJson(res, 200, result);
+  } catch (error) {
+    sendQwenError(res, error);
+  }
+}
+
+async function handleQwenWarmup(res) {
+  try {
+    sendJson(res, 200, await qwenProxy.warmup());
+  } catch (error) {
+    sendQwenError(res, error);
+  }
+}
 
 // MIME types for static serving
 const MIME_TYPES = {
@@ -362,6 +431,42 @@ Chỉ trả về định dạng JSON thuần túy (không kèm markdown):
   }
 
   // API: Get / Set pre-configured Zoom meeting link
+  if (pathname === '/api/ai/health') {
+    if (req.method !== 'GET') {
+      sendJson(res, 405, { ok: false, error: { code: 'METHOD_NOT_ALLOWED', message: 'Chỉ hỗ trợ GET.' } });
+      return;
+    }
+    handleQwenHealth(res);
+    return;
+  }
+
+  if (pathname === '/api/ai/classify') {
+    if (req.method !== 'POST') {
+      sendJson(res, 405, { ok: false, error: { code: 'METHOD_NOT_ALLOWED', message: 'Chỉ hỗ trợ POST.' } });
+      return;
+    }
+    handleQwenClassification(req, res);
+    return;
+  }
+
+  if (pathname === '/api/ai/warmup') {
+    if (req.method !== 'POST') {
+      sendJson(res, 405, { ok: false, error: { code: 'METHOD_NOT_ALLOWED', message: 'Chỉ hỗ trợ POST.' } });
+      return;
+    }
+    handleQwenWarmup(res);
+    return;
+  }
+
+  if (pathname === '/api/ai/metrics') {
+    if (req.method !== 'GET') {
+      sendJson(res, 405, { ok: false, error: { code: 'METHOD_NOT_ALLOWED', message: 'Chỉ hỗ trợ GET.' } });
+      return;
+    }
+    sendJson(res, 200, { ok: true, metrics: qwenProxy.getMetrics() });
+    return;
+  }
+
   if (pathname === '/api/config-zoom') {
     if (req.method === 'POST') {
       let body = '';
@@ -456,10 +561,12 @@ Chỉ trả về định dạng JSON thuần túy (không kèm markdown):
       startedAt: null
     };
     syncClientSessionIds();
+    qwenProxy.reset();
     broadcastToRole('all', {
       type: 'faqs_refreshed',
       faqs: []
     });
+    broadcastToRole('all', { type: 'session_reset' });
     broadcastToRole('all', {
       type: 'session_ended',
       session: getSessionSnapshot(),
@@ -1035,5 +1142,6 @@ server.listen(PORT, () => {
   console.log(`👉 Giảng viên Dashboard: http://localhost:${PORT}/lecturer`);
   console.log(`👉 Học viên Mobile Portal: http://localhost:${PORT}/student`);
   console.log(`👉 WebSocket Endpoint: ws://localhost:${PORT}/ws`);
+  console.log(`👉 Qwen3 Backend: ${process.env.QWEN_API_KEY ? 'Configured' : 'Not configured (copy .env.example to .env)'}`);
   console.log(`=======================================================`);
 });
