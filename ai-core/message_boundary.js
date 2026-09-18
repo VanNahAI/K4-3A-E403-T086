@@ -21,11 +21,14 @@
   const ADMIN_PATTERNS = [
     /\b(workshop|buổi\s*học|bài\s*tập|bài\s*lab|lab|deadline|hạn\s+nộp|nộp\s+bài|điểm\s*danh|chấm\s*điểm|lịch\s*học|link\s+(zoom|học|bài)|mã\s*qr|qr|team|nhóm|giảng\s*viên|trợ\s*giảng)\b/i
   ];
-  const CLASS_CONTEXT_PATTERNS = [
-    /(?:hôm\s+nay|buổi\s+này|buổi\s+học\s+này|tiết\s+này|tiếp\s+theo)\s+(?:(?:lớp\s+mình|mình|chúng\s+ta|chúng\s+em|tụi\s+em)\s+)?(?:sẽ\s+)?(?:học|được\s+học|giảng)\s+(?:(?:nội\s+dung|chủ\s+đề|phần)\s+)?(?:gì|nào)(?=\s|[?.!,]|$)/iu,
-    /(?:đang|sẽ)\s+(?:học|giảng)(?:\s+(?:nội\s+dung|chủ\s+đề|phần))?\s+(?:gì|nào)(?=\s|[?.!,]|$)/iu,
-    /(?:nội\s+dung|chủ\s+đề|chương\s+trình)\s+(?:của\s+)?(?:hôm\s+nay|buổi\s+này|buổi\s+học\s+này)(?:\s+là)?\s+(?:gì|phần\s+nào)(?=\s|[?.!,]|$)/iu
-  ];
+  const CLASS_TIME_PATTERN = /(?:^|\s)(?:hom nay|sang nay|chieu nay|toi nay|nay|ngay mai|sang mai|chieu mai|toi mai|mai|ngay kia|buoi nay|buoi hoc nay|buoi sau|buoi toi|buoi ke tiep|bua nay|bua sau|bua toi|tiet nay|tiet sau|tiet toi|lan toi|tuan sau|tuan toi|thu hai|thu ba|thu tu|thu nam|thu sau|thu bay|chu nhat|t[2-7])(?:\s|$)/i;
+  const CLASS_TERM_PATTERN = /(?:^|\s)(?:hoc|day|giang|lop|bai|phan|chuong|mon|noi dung|chu de)(?:\s|$)/i;
+  const CLASS_QUERY_PATTERN = /(?:^|\s)(?:gi|nao|the nao|o dau|phong nao|toi dau|den dau|online|offline|co hoc (?:khong|ko)|nghi hay|chuan bi)(?:\s|[?.!,]|$)/i;
+  const CLASS_SEQUENCE_PATTERN = /(?:dang|tiep theo|ke tiep|sau (?:phan|bai) nay).{0,35}(?:hoc|day|giang|bai|phan|chuong|mon)|(?:hoc|day|giang).{0,25}(?:toi dau|den dau)/i;
+  const CLASS_CONTINUATION_PATTERN = /(?:(?:van\s+)?(?:hoc|day|giang)\s+(?:tiep(?:\s+tuc)?\s+)?|(?:co\s+)?tiep\s+tuc\s+(?:hoc|day|giang)\s+)(?:phan|bai|chuong|noi\s+dung)\s+(?:nay|do|kia)\s+(?:khong|chu|a|ha)(?=\s|[?.!,]|$)/i;
+  const CLASS_SCHEDULE_PATTERN = /(?:^|\s)(?:lich|co hoc|nghi|chuan bi)(?:\s|$)/i;
+  const CLASS_AMBIGUOUS_PATTERN = /(?:cai (?:do|gi do)|phan (?:kia|do)|bai (?:kia|do)|dung (?:khong|ko)|ha)(?:\s|[?.!,]|$)/i;
+  const FOLDED_OFF_TOPIC_PATTERN = /(?:an (?:com|mon|gi)|di choi|xem phim|phim gi|choi game|game gi|da bong|bong da|thoi tiet|xo so|ca si|mac ao|ngu qua)/i;
   const ERROR_PATTERNS = [
     /\b(error|exception|traceback|failed|failure|cannot|can't|timeout|crash|econnrefused|out\s+of\s+memory|already\s+in\s+use|permission\s+denied|not\s+found|undefined|nullpointer)\b/i,
     /\b(bị\s+lỗi|báo\s+lỗi|không\s+chạy|không\s+vào|không\s+kết\s+nối|không\s+cài|không\s+build|không\s+deploy|bị\s+kẹt|bị\s+treo|xung\s+đột\s+cổng)\b/i,
@@ -60,6 +63,18 @@
       .trim();
   }
 
+  function foldVietnameseText(value) {
+    return String(value || '')
+      .normalize('NFD')
+      .replace(/\p{M}/gu, '')
+      .replace(/đ/gi, (character) => character === 'Đ' ? 'D' : 'd')
+      .toLowerCase()
+      .replace(/\b(?:khong|ko|k)\b/g, 'khong')
+      .replace(/[^a-z0-9?.!,]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
   function hasAny(text, patterns) {
     return patterns.some((pattern) => pattern.test(text));
   }
@@ -79,6 +94,7 @@
     const startedAt = now();
     const original = String(text || '').normalize('NFKC').trim();
     const normalizedText = normalizeText(original);
+    const foldedText = foldVietnameseText(normalizedText);
     const signals = [];
 
     if (hasAny(original, INJECTION_PATTERNS)) {
@@ -88,10 +104,23 @@
 
     const technical = hasAny(normalizedText, TECH_PATTERNS);
     const administrative = hasAny(normalizedText, ADMIN_PATTERNS);
-    const classContext = hasAny(normalizedText, CLASS_CONTEXT_PATTERNS);
     const errorLog = hasAny(original, ERROR_PATTERNS);
     const question = hasAny(normalizedText, QUESTION_PATTERNS);
     const help = hasAny(normalizedText, HELP_PATTERNS);
+    const explicitOffTopic = hasAny(normalizedText, OFF_TOPIC_PATTERNS) || FOLDED_OFF_TOPIC_PATTERN.test(foldedText);
+    const hasClassTime = CLASS_TIME_PATTERN.test(foldedText);
+    const hasClassTerm = CLASS_TERM_PATTERN.test(foldedText);
+    const hasClassQuery = CLASS_QUERY_PATTERN.test(foldedText);
+    const hasClassSequence = CLASS_SEQUENCE_PATTERN.test(foldedText);
+    const hasClassContinuation = CLASS_CONTINUATION_PATTERN.test(foldedText);
+    const hasClassSchedule = CLASS_SCHEDULE_PATTERN.test(foldedText);
+    const classAmbiguous = !explicitOffTopic && hasClassTime && hasClassTerm && CLASS_AMBIGUOUS_PATTERN.test(foldedText);
+    const classContext = !explicitOffTopic && !classAmbiguous && (
+      (hasClassTime && ((hasClassTerm && hasClassQuery) || (hasClassSchedule && (hasClassQuery || question))))
+      || (hasClassTime && hasClassContinuation)
+      || (hasClassSequence && hasClassQuery)
+      || (/\b(?:noi dung|chu de|chuong trinh)\b/.test(foldedText) && hasClassTime && hasClassQuery)
+    );
     if (technical) signals.push('technical_term');
     if (administrative) signals.push('workshop_admin');
     if (classContext) signals.push('class_context');
@@ -119,7 +148,11 @@
     }
 
     const vague = /^(?:cái|phần|đoạn|bước|chỗ|nó)?\s*(?:này|kia)?\s*(?:là\s+)?(?:sao|sao\s+vậy|sao\s+thế|không\s+hiểu|chưa\s+hiểu|không\s+được|giúp\s+em\s+với|xem\s+giúp\s+em)(?:\s+ạ)?[.!?]*$/iu.test(normalizedText);
-    if (!vague && (hasAny(normalizedText, OFF_TOPIC_PATTERNS) || (question && !technical && !administrative && !help))) {
+    if (classAmbiguous) {
+      signals.push('class_context', 'missing_context');
+      return result(startedAt, 'review', 'class_context_ambiguous', normalizedText, signals, 0.68);
+    }
+    if (!vague && (explicitOffTopic || (question && !technical && !administrative && !help))) {
       signals.push('off_topic');
       return result(startedAt, 'filter', 'off_topic', normalizedText, signals, 0.93);
     }
@@ -134,5 +167,5 @@
     return result(startedAt, 'filter', 'off_topic', normalizedText, signals, 0.86);
   }
 
-  return { evaluateMessageBoundary, normalizeText };
+  return { evaluateMessageBoundary, normalizeText, foldVietnameseText };
 });

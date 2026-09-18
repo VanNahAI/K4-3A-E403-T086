@@ -1,18 +1,18 @@
 {
-  "generatedAt": "2026-09-18T03:11:42.411Z",
-  "total": 68,
+  "generatedAt": "2026-09-18T03:34:00.067Z",
+  "total": 107,
   "confusionMatrix": {
-    "tp": 35,
+    "tp": 64,
     "fp": 0,
-    "tn": 33,
+    "tn": 43,
     "fn": 0
   },
   "metrics": {
     "precision": 1,
     "recall": 1,
     "f1": 1,
-    "p50LatencyMs": 0.00689999999999813,
-    "p95LatencyMs": 0.6724999999999994
+    "p50LatencyMs": 0.01279999999999859,
+    "p95LatencyMs": 0.33509999999999707
   },
   "requirements": {
     "pureNoiseSuppression": 1,
@@ -45,6 +45,36 @@
       "correct": 5,
       "errors": []
     },
+    "class_context_future": {
+      "total": 4,
+      "correct": 4,
+      "errors": []
+    },
+    "class_context_variants": {
+      "total": 6,
+      "correct": 6,
+      "errors": []
+    },
+    "class_context_schedule": {
+      "total": 4,
+      "correct": 4,
+      "errors": []
+    },
+    "class_context_progress": {
+      "total": 5,
+      "correct": 5,
+      "errors": []
+    },
+    "class_context_chat": {
+      "total": 6,
+      "correct": 6,
+      "errors": []
+    },
+    "class_context_continuation": {
+      "total": 4,
+      "correct": 4,
+      "errors": []
+    },
     "pure_noise": {
       "total": 10,
       "correct": 10,
@@ -56,8 +86,13 @@
       "errors": []
     },
     "class_context_negative": {
-      "total": 3,
-      "correct": 3,
+      "total": 11,
+      "correct": 11,
+      "errors": []
+    },
+    "class_context_review": {
+      "total": 2,
+      "correct": 2,
       "errors": []
     },
     "review": {
@@ -87,7 +122,7 @@
           "question_word"
         ],
         "score": 0.94,
-        "latencyMs": 3.1723
+        "latencyMs": 4.594199999999997
       }
     },
     {
@@ -104,7 +139,7 @@
           "question_word"
         ],
         "score": 0.94,
-        "latencyMs": 0.9030000000000022
+        "latencyMs": 1.1194000000000024
       }
     },
     {
@@ -121,7 +156,7 @@
           "question_word"
         ],
         "score": 0.94,
-        "latencyMs": 0.01640000000000086
+        "latencyMs": 0.029599999999998516
       }
     },
     {
@@ -138,7 +173,7 @@
           "question_word"
         ],
         "score": 0.94,
-        "latencyMs": 0.013100000000001444
+        "latencyMs": 0.02809999999999846
       }
     },
     {
@@ -155,7 +190,7 @@
           "question_word"
         ],
         "score": 0.94,
-        "latencyMs": 0.021300000000000097
+        "latencyMs": 0.03369999999999962
       }
     },
     {
@@ -172,7 +207,7 @@
           "question_word"
         ],
         "score": 0.94,
-        "latencyMs": 0.6724999999999994
+        "latencyMs": 0.6112000000000002
       }
     },
     {
@@ -189,7 +224,7 @@
           "question_word"
         ],
         "score": 0.94,
-        "latencyMs": 0.016100000000001558
+        "latencyMs": 0.022999999999999687
       }
     },
     {
@@ -206,7 +241,7 @@
           "question_word"
         ],
         "score": 0.94,
-        "latencyMs": 0.010400000000000631
+        "latencyMs": 0.01839999999999975
       }
     },
     {
@@ -222,7 +257,7 @@
           "error_log"
         ],
         "score": 0.98,
-        "latencyMs": 0.182500000000001
+        "latencyMs": 0.26500000000000057
       }
     },
     {
@@ -239,7 +274,7 @@
           "error_log"
         ],
         "score": 0.98,
-        "latencyMs": 0.1413000000000011
+        "latencyMs": 0.5002000000000031
       }
     },
     {
@@ -256,7 +291,7 @@
           "error_log"
         ],
         "score": 0.98,
-        "latencyMs": 0.012999999999998124
+        "latencyMs": 0.025300000000001432
       }
     },
     {
@@ -273,7 +308,7 @@
           "error_log"
         ],
         "score": 0.98,
-        "latencyMs": 0.00689999999999813
+        "latencyMs": 0.014200000000002433
       }
     },
     {
@@ -290,7 +325,7 @@
           "error_log"
         ],
         "score": 0.98,
-        "latencyMs": 0.0070000000000014495
+        "latencyMs": 0.025500000000000966
       }
     },
     {
@@ -306,7 +341,7 @@
           "error_log"
         ],
         "score": 0.98,
-        "latencyMs": 0.10140000000000171
+        "latencyMs": 0.10709999999999908
       }
     },
     {
@@ -323,7 +358,7 @@
           "error_log"
         ],
         "score": 0.98,
-        "latencyMs": 0.006399999999999295
+        "latencyMs": 0.019400000000000972
       }
     },
     {
@@ -340,7 +375,7 @@
           "error_log"
         ],
         "score": 0.98,
-        "latencyMs": 0.008099999999998886
+        "latencyMs": 0.016899999999999693
       }
     },
     {
@@ -356,7 +391,7 @@
           "workshop_admin"
         ],
         "score": 0.94,
-        "latencyMs": 0.07689999999999841
+        "latencyMs": 0.14680000000000248
       }
     },
     {
@@ -373,7 +408,7 @@
           "workshop_admin"
         ],
         "score": 0.94,
-        "latencyMs": 0.010400000000000631
+        "latencyMs": 0.050900000000002166
       }
     },
     {
@@ -389,7 +424,7 @@
           "workshop_admin"
         ],
         "score": 0.94,
-        "latencyMs": 0.00829999999999842
+        "latencyMs": 0.019200000000001438
       }
     },
     {
@@ -405,7 +440,7 @@
           "workshop_admin"
         ],
         "score": 0.94,
-        "latencyMs": 0.007199999999997431
+        "latencyMs": 0.01729999999999876
       }
     },
     {
@@ -422,7 +457,7 @@
           "workshop_admin"
         ],
         "score": 0.94,
-        "latencyMs": 0.005200000000002092
+        "latencyMs": 0.014599999999997948
       }
     },
     {
@@ -438,7 +473,7 @@
           "workshop_admin"
         ],
         "score": 0.94,
-        "latencyMs": 0.006299999999999528
+        "latencyMs": 0.016799999999999926
       }
     },
     {
@@ -454,7 +489,7 @@
           "workshop_admin"
         ],
         "score": 0.94,
-        "latencyMs": 0.0069000000000016826
+        "latencyMs": 0.01950000000000074
       }
     },
     {
@@ -472,7 +507,7 @@
           "question_word"
         ],
         "score": 0.98,
-        "latencyMs": 0.009599999999998943
+        "latencyMs": 0.019600000000000506
       }
     },
     {
@@ -490,7 +525,7 @@
           "question_word"
         ],
         "score": 0.98,
-        "latencyMs": 0.00590000000000046
+        "latencyMs": 0.017199999999998994
       }
     },
     {
@@ -508,7 +543,7 @@
           "question_word"
         ],
         "score": 0.98,
-        "latencyMs": 0.00560000000000116
+        "latencyMs": 0.02809999999999846
       }
     },
     {
@@ -525,7 +560,7 @@
           "question_word"
         ],
         "score": 0.94,
-        "latencyMs": 0.006800000000001916
+        "latencyMs": 0.017399999999998528
       }
     },
     {
@@ -542,7 +577,7 @@
           "question_word"
         ],
         "score": 0.94,
-        "latencyMs": 0.015200000000000102
+        "latencyMs": 0.015100000000000335
       }
     },
     {
@@ -560,7 +595,7 @@
           "help_request"
         ],
         "score": 0.94,
-        "latencyMs": 0.006000000000000227
+        "latencyMs": 0.011700000000001154
       }
     },
     {
@@ -577,7 +612,7 @@
           "question_word"
         ],
         "score": 0.94,
-        "latencyMs": 0.006199999999999761
+        "latencyMs": 0.012100000000000222
       }
     },
     {
@@ -594,7 +629,7 @@
           "question_word"
         ],
         "score": 0.96,
-        "latencyMs": 0.005100000000002325
+        "latencyMs": 0.0359000000000016
       }
     },
     {
@@ -611,7 +646,7 @@
           "question_word"
         ],
         "score": 0.96,
-        "latencyMs": 0.00590000000000046
+        "latencyMs": 0.014200000000002433
       }
     },
     {
@@ -628,7 +663,7 @@
           "question_word"
         ],
         "score": 0.96,
-        "latencyMs": 0.0058000000000006935
+        "latencyMs": 0.014200000000002433
       }
     },
     {
@@ -645,7 +680,7 @@
           "question_word"
         ],
         "score": 0.96,
-        "latencyMs": 0.004899999999999238
+        "latencyMs": 0.012000000000000455
       }
     },
     {
@@ -662,7 +697,500 @@
           "question_word"
         ],
         "score": 0.96,
-        "latencyMs": 0.010500000000000398
+        "latencyMs": 0.01249999999999929
+      }
+    },
+    {
+      "id": "CA06",
+      "group": "class_context_future",
+      "expected": "allow",
+      "text": "Mai học sang phần nào?",
+      "actual": {
+        "decision": "allow",
+        "reasonCode": "class_agenda",
+        "normalizedText": "Mai học sang phần nào?",
+        "signals": [
+          "class_context",
+          "question_word"
+        ],
+        "score": 0.96,
+        "latencyMs": 0.009599999999998943
+      }
+    },
+    {
+      "id": "CA07",
+      "group": "class_context_future",
+      "expected": "allow",
+      "text": "Ngày mai học chủ đề gì?",
+      "actual": {
+        "decision": "allow",
+        "reasonCode": "class_agenda",
+        "normalizedText": "Ngày mai học chủ đề gì?",
+        "signals": [
+          "class_context",
+          "question_word"
+        ],
+        "score": 0.96,
+        "latencyMs": 0.012599999999999056
+      }
+    },
+    {
+      "id": "CA08",
+      "group": "class_context_future",
+      "expected": "allow",
+      "text": "Buổi sau lớp mình học bài nào?",
+      "actual": {
+        "decision": "allow",
+        "reasonCode": "class_agenda",
+        "normalizedText": "Buổi sau lớp mình học bài nào?",
+        "signals": [
+          "class_context",
+          "question_word"
+        ],
+        "score": 0.96,
+        "latencyMs": 0.012299999999999756
+      }
+    },
+    {
+      "id": "CA09",
+      "group": "class_context_future",
+      "expected": "allow",
+      "text": "Tuần sau thầy dạy phần nào?",
+      "actual": {
+        "decision": "allow",
+        "reasonCode": "class_agenda",
+        "normalizedText": "Tuần sau thầy dạy phần nào?",
+        "signals": [
+          "class_context",
+          "question_word"
+        ],
+        "score": 0.96,
+        "latencyMs": 0.011199999999998766
+      }
+    },
+    {
+      "id": "CA10",
+      "group": "class_context_variants",
+      "expected": "allow",
+      "text": "Chiều nay học phần nào?",
+      "actual": {
+        "decision": "allow",
+        "reasonCode": "class_agenda",
+        "normalizedText": "Chiều nay học phần nào?",
+        "signals": [
+          "class_context",
+          "question_word"
+        ],
+        "score": 0.96,
+        "latencyMs": 0.010000000000001563
+      }
+    },
+    {
+      "id": "CA11",
+      "group": "class_context_variants",
+      "expected": "allow",
+      "text": "Ngày kia học bài gì?",
+      "actual": {
+        "decision": "allow",
+        "reasonCode": "class_agenda",
+        "normalizedText": "Ngày kia học bài gì?",
+        "signals": [
+          "class_context",
+          "question_word"
+        ],
+        "score": 0.96,
+        "latencyMs": 0.007899999999999352
+      }
+    },
+    {
+      "id": "CA12",
+      "group": "class_context_variants",
+      "expected": "allow",
+      "text": "Tuần tới học chủ đề nào?",
+      "actual": {
+        "decision": "allow",
+        "reasonCode": "class_agenda",
+        "normalizedText": "Tuần tới học chủ đề nào?",
+        "signals": [
+          "class_context",
+          "question_word"
+        ],
+        "score": 0.96,
+        "latencyMs": 0.017399999999998528
+      }
+    },
+    {
+      "id": "CA13",
+      "group": "class_context_variants",
+      "expected": "allow",
+      "text": "Tiết tới học gì vậy thầy?",
+      "actual": {
+        "decision": "allow",
+        "reasonCode": "class_agenda",
+        "normalizedText": "Tiết tới học gì vậy thầy?",
+        "signals": [
+          "class_context",
+          "question_word"
+        ],
+        "score": 0.96,
+        "latencyMs": 0.013799999999999812
+      }
+    },
+    {
+      "id": "CA14",
+      "group": "class_context_variants",
+      "expected": "allow",
+      "text": "Buổi kế tiếp học nội dung gì?",
+      "actual": {
+        "decision": "allow",
+        "reasonCode": "class_agenda",
+        "normalizedText": "Buổi kế tiếp học nội dung gì?",
+        "signals": [
+          "class_context",
+          "question_word"
+        ],
+        "score": 0.96,
+        "latencyMs": 0.01629999999999754
+      }
+    },
+    {
+      "id": "CA15",
+      "group": "class_context_variants",
+      "expected": "allow",
+      "text": "Thứ hai mình học gì?",
+      "actual": {
+        "decision": "allow",
+        "reasonCode": "class_agenda",
+        "normalizedText": "Thứ hai mình học gì?",
+        "signals": [
+          "class_context",
+          "question_word"
+        ],
+        "score": 0.96,
+        "latencyMs": 0.04770000000000252
+      }
+    },
+    {
+      "id": "CA16",
+      "group": "class_context_schedule",
+      "expected": "allow",
+      "text": "Mai có học không thầy?",
+      "actual": {
+        "decision": "allow",
+        "reasonCode": "class_agenda",
+        "normalizedText": "Mai có học không thầy?",
+        "signals": [
+          "class_context",
+          "question_word"
+        ],
+        "score": 0.96,
+        "latencyMs": 0.01279999999999859
+      }
+    },
+    {
+      "id": "CA17",
+      "group": "class_context_schedule",
+      "expected": "allow",
+      "text": "Mai học online hay offline?",
+      "actual": {
+        "decision": "allow",
+        "reasonCode": "class_agenda",
+        "normalizedText": "Mai học online hay offline?",
+        "signals": [
+          "class_context",
+          "question_word"
+        ],
+        "score": 0.96,
+        "latencyMs": 0.010899999999999466
+      }
+    },
+    {
+      "id": "CA18",
+      "group": "class_context_schedule",
+      "expected": "allow",
+      "text": "Mai học phòng nào?",
+      "actual": {
+        "decision": "allow",
+        "reasonCode": "class_agenda",
+        "normalizedText": "Mai học phòng nào?",
+        "signals": [
+          "class_context",
+          "question_word"
+        ],
+        "score": 0.96,
+        "latencyMs": 0.008099999999998886
+      }
+    },
+    {
+      "id": "CA19",
+      "group": "class_context_schedule",
+      "expected": "allow",
+      "text": "Buổi sau cần chuẩn bị gì?",
+      "actual": {
+        "decision": "allow",
+        "reasonCode": "class_agenda",
+        "normalizedText": "Buổi sau cần chuẩn bị gì?",
+        "signals": [
+          "class_context",
+          "question_word"
+        ],
+        "score": 0.96,
+        "latencyMs": 0.014900000000000801
+      }
+    },
+    {
+      "id": "CA20",
+      "group": "class_context_progress",
+      "expected": "allow",
+      "text": "Bài tiếp theo là bài gì?",
+      "actual": {
+        "decision": "allow",
+        "reasonCode": "class_agenda",
+        "normalizedText": "Bài tiếp theo là bài gì?",
+        "signals": [
+          "class_context",
+          "question_word"
+        ],
+        "score": 0.96,
+        "latencyMs": 0.011700000000001154
+      }
+    },
+    {
+      "id": "CA21",
+      "group": "class_context_progress",
+      "expected": "allow",
+      "text": "Sau phần này mình học phần nào?",
+      "actual": {
+        "decision": "allow",
+        "reasonCode": "class_agenda",
+        "normalizedText": "Sau phần này mình học phần nào?",
+        "signals": [
+          "class_context",
+          "question_word"
+        ],
+        "score": 0.96,
+        "latencyMs": 0.014800000000001035
+      }
+    },
+    {
+      "id": "CA22",
+      "group": "class_context_progress",
+      "expected": "allow",
+      "text": "Mình đang học tới đâu rồi?",
+      "actual": {
+        "decision": "allow",
+        "reasonCode": "class_agenda",
+        "normalizedText": "Mình đang học tới đâu rồi?",
+        "signals": [
+          "class_context",
+          "question_word"
+        ],
+        "score": 0.96,
+        "latencyMs": 0.013600000000000279
+      }
+    },
+    {
+      "id": "CA23",
+      "group": "class_context_progress",
+      "expected": "allow",
+      "text": "Thầy đang giảng tới chương nào?",
+      "actual": {
+        "decision": "allow",
+        "reasonCode": "class_agenda",
+        "normalizedText": "đang giảng tới chương nào?",
+        "signals": [
+          "class_context",
+          "question_word"
+        ],
+        "score": 0.96,
+        "latencyMs": 0.012099999999996669
+      }
+    },
+    {
+      "id": "CA24",
+      "group": "class_context_progress",
+      "expected": "allow",
+      "text": "Mai nghỉ hay vẫn học?",
+      "actual": {
+        "decision": "allow",
+        "reasonCode": "class_agenda",
+        "normalizedText": "Mai nghỉ hay vẫn học?",
+        "signals": [
+          "class_context",
+          "question_word"
+        ],
+        "score": 0.96,
+        "latencyMs": 0.007699999999999818
+      }
+    },
+    {
+      "id": "CA25",
+      "group": "class_context_chat",
+      "expected": "allow",
+      "text": "mai hoc gi thay?",
+      "actual": {
+        "decision": "allow",
+        "reasonCode": "class_agenda",
+        "normalizedText": "mai hoc gi thay?",
+        "signals": [
+          "class_context",
+          "question_word"
+        ],
+        "score": 0.96,
+        "latencyMs": 0.011700000000001154
+      }
+    },
+    {
+      "id": "CA26",
+      "group": "class_context_chat",
+      "expected": "allow",
+      "text": "bua sau hoc gi?",
+      "actual": {
+        "decision": "allow",
+        "reasonCode": "class_agenda",
+        "normalizedText": "bua sau hoc gi?",
+        "signals": [
+          "class_context",
+          "question_word"
+        ],
+        "score": 0.96,
+        "latencyMs": 0.008099999999998886
+      }
+    },
+    {
+      "id": "CA27",
+      "group": "class_context_chat",
+      "expected": "allow",
+      "text": "nay hoc bai nao?",
+      "actual": {
+        "decision": "allow",
+        "reasonCode": "class_agenda",
+        "normalizedText": "nay hoc bai nao?",
+        "signals": [
+          "class_context",
+          "question_word"
+        ],
+        "score": 0.96,
+        "latencyMs": 0.005500000000001393
+      }
+    },
+    {
+      "id": "CA28",
+      "group": "class_context_chat",
+      "expected": "allow",
+      "text": "t2 hoc gi?",
+      "actual": {
+        "decision": "allow",
+        "reasonCode": "class_agenda",
+        "normalizedText": "t2 hoc gi?",
+        "signals": [
+          "class_context",
+          "question_word"
+        ],
+        "score": 0.96,
+        "latencyMs": 0.009799999999998477
+      }
+    },
+    {
+      "id": "CA29",
+      "group": "class_context_chat",
+      "expected": "allow",
+      "text": "mai co hoc ko?",
+      "actual": {
+        "decision": "allow",
+        "reasonCode": "class_agenda",
+        "normalizedText": "mai co hoc ko?",
+        "signals": [
+          "class_context",
+          "question_word"
+        ],
+        "score": 0.96,
+        "latencyMs": 0.007600000000000051
+      }
+    },
+    {
+      "id": "CA30",
+      "group": "class_context_chat",
+      "expected": "allow",
+      "text": "Lịch ngày mai thế nào thầy?",
+      "actual": {
+        "decision": "allow",
+        "reasonCode": "class_agenda",
+        "normalizedText": "Lịch ngày mai thế nào thầy?",
+        "signals": [
+          "class_context",
+          "question_word"
+        ],
+        "score": 0.96,
+        "latencyMs": 0.019999999999999574
+      }
+    },
+    {
+      "id": "CA31",
+      "group": "class_context_continuation",
+      "expected": "allow",
+      "text": "Ngày mai học tiếp phần này không thầy?",
+      "actual": {
+        "decision": "allow",
+        "reasonCode": "class_agenda",
+        "normalizedText": "Ngày mai học tiếp phần này không thầy?",
+        "signals": [
+          "class_context",
+          "question_word"
+        ],
+        "score": 0.96,
+        "latencyMs": 0.012899999999998357
+      }
+    },
+    {
+      "id": "CA32",
+      "group": "class_context_continuation",
+      "expected": "allow",
+      "text": "Mai có học tiếp bài này không?",
+      "actual": {
+        "decision": "allow",
+        "reasonCode": "class_agenda",
+        "normalizedText": "Mai có học tiếp bài này không?",
+        "signals": [
+          "class_context",
+          "question_word"
+        ],
+        "score": 0.96,
+        "latencyMs": 0.010600000000000165
+      }
+    },
+    {
+      "id": "CA33",
+      "group": "class_context_continuation",
+      "expected": "allow",
+      "text": "Buổi sau mình học tiếp chương này chứ?",
+      "actual": {
+        "decision": "allow",
+        "reasonCode": "class_agenda",
+        "normalizedText": "Buổi sau mình học tiếp chương này chứ?",
+        "signals": [
+          "class_context",
+          "question_word"
+        ],
+        "score": 0.96,
+        "latencyMs": 0.011499999999998067
+      }
+    },
+    {
+      "id": "CA34",
+      "group": "class_context_continuation",
+      "expected": "allow",
+      "text": "Tuần sau vẫn học phần này à?",
+      "actual": {
+        "decision": "allow",
+        "reasonCode": "class_agenda",
+        "normalizedText": "Tuần sau vẫn học phần này à?",
+        "signals": [
+          "class_context",
+          "question_word"
+        ],
+        "score": 0.96,
+        "latencyMs": 0.009500000000002728
       }
     },
     {
@@ -678,7 +1206,7 @@
           "pure_greeting"
         ],
         "score": 0.99,
-        "latencyMs": 0.438600000000001
+        "latencyMs": 0.4650999999999996
       }
     },
     {
@@ -694,7 +1222,7 @@
           "pure_greeting"
         ],
         "score": 0.99,
-        "latencyMs": 0.17849999999999966
+        "latencyMs": 0.18329999999999558
       }
     },
     {
@@ -710,7 +1238,7 @@
           "courtesy"
         ],
         "score": 0.99,
-        "latencyMs": 0.00730000000000075
+        "latencyMs": 0.01099999999999568
       }
     },
     {
@@ -726,7 +1254,7 @@
           "courtesy"
         ],
         "score": 0.99,
-        "latencyMs": 0.0033999999999991815
+        "latencyMs": 0.004800000000003024
       }
     },
     {
@@ -742,7 +1270,7 @@
           "courtesy"
         ],
         "score": 0.99,
-        "latencyMs": 0.12110000000000198
+        "latencyMs": 0.11659999999999826
       }
     },
     {
@@ -758,7 +1286,7 @@
           "courtesy"
         ],
         "score": 0.99,
-        "latencyMs": 0.006599999999998829
+        "latencyMs": 0.01659999999999684
       }
     },
     {
@@ -774,7 +1302,7 @@
           "courtesy"
         ],
         "score": 0.99,
-        "latencyMs": 0.0036999999999984823
+        "latencyMs": 0.006199999999999761
       }
     },
     {
@@ -790,7 +1318,7 @@
           "reaction"
         ],
         "score": 0.99,
-        "latencyMs": 0.004300000000000637
+        "latencyMs": 0.0049999999999954525
       }
     },
     {
@@ -806,7 +1334,7 @@
           "reaction"
         ],
         "score": 0.99,
-        "latencyMs": 0.007699999999999818
+        "latencyMs": 0.016899999999999693
       }
     },
     {
@@ -822,7 +1350,7 @@
           "reaction"
         ],
         "score": 0.99,
-        "latencyMs": 0.002600000000001046
+        "latencyMs": 0.0035999999999987153
       }
     },
     {
@@ -839,7 +1367,7 @@
           "off_topic"
         ],
         "score": 0.93,
-        "latencyMs": 0.7435000000000009
+        "latencyMs": 0.3282999999999987
       }
     },
     {
@@ -856,7 +1384,7 @@
           "off_topic"
         ],
         "score": 0.93,
-        "latencyMs": 0.2414999999999985
+        "latencyMs": 0.14560000000000173
       }
     },
     {
@@ -873,7 +1401,7 @@
           "off_topic"
         ],
         "score": 0.93,
-        "latencyMs": 0.00859999999999772
+        "latencyMs": 0.018100000000004002
       }
     },
     {
@@ -890,7 +1418,7 @@
           "off_topic"
         ],
         "score": 0.93,
-        "latencyMs": 0.008199999999998653
+        "latencyMs": 0.01290000000000191
       }
     },
     {
@@ -903,10 +1431,10 @@
         "reasonCode": "off_topic",
         "normalizedText": "Em buồn ngủ quá",
         "signals": [
-          "out_of_scope"
+          "off_topic"
         ],
-        "score": 0.86,
-        "latencyMs": 0.29739999999999966
+        "score": 0.93,
+        "latencyMs": 0.034099999999995134
       }
     },
     {
@@ -923,7 +1451,7 @@
           "off_topic"
         ],
         "score": 0.93,
-        "latencyMs": 0.006799999999998363
+        "latencyMs": 0.009499999999995623
       }
     },
     {
@@ -936,10 +1464,10 @@
         "reasonCode": "off_topic",
         "normalizedText": "Cho em xin số xổ số hôm nay",
         "signals": [
-          "out_of_scope"
+          "off_topic"
         ],
-        "score": 0.86,
-        "latencyMs": 0.010300000000000864
+        "score": 0.93,
+        "latencyMs": 0.013300000000000978
       }
     },
     {
@@ -956,7 +1484,7 @@
           "off_topic"
         ],
         "score": 0.93,
-        "latencyMs": 0.005300000000001859
+        "latencyMs": 0.010800000000003251
       }
     },
     {
@@ -973,7 +1501,7 @@
           "off_topic"
         ],
         "score": 0.93,
-        "latencyMs": 0.003999999999997783
+        "latencyMs": 0.006500000000002615
       }
     },
     {
@@ -990,7 +1518,7 @@
           "off_topic"
         ],
         "score": 0.93,
-        "latencyMs": 0.0045999999999999375
+        "latencyMs": 0.008800000000000807
       }
     },
     {
@@ -1007,7 +1535,179 @@
           "off_topic"
         ],
         "score": 0.93,
-        "latencyMs": 0.004899999999999238
+        "latencyMs": 0.00829999999999842
+      }
+    },
+    {
+      "id": "OT12",
+      "group": "class_context_negative",
+      "expected": "filter",
+      "text": "Mai học xong đi chơi đâu?",
+      "actual": {
+        "decision": "filter",
+        "reasonCode": "off_topic",
+        "normalizedText": "Mai học xong đi chơi đâu?",
+        "signals": [
+          "question_word",
+          "off_topic"
+        ],
+        "score": 0.93,
+        "latencyMs": 0.008699999999997488
+      }
+    },
+    {
+      "id": "OT13",
+      "group": "class_context_negative",
+      "expected": "filter",
+      "text": "Ngày mai thầy ăn gì?",
+      "actual": {
+        "decision": "filter",
+        "reasonCode": "off_topic",
+        "normalizedText": "Ngày mai thầy ăn gì?",
+        "signals": [
+          "question_word",
+          "off_topic"
+        ],
+        "score": 0.93,
+        "latencyMs": 0.0069000000000016826
+      }
+    },
+    {
+      "id": "OT14",
+      "group": "class_context_negative",
+      "expected": "filter",
+      "text": "Chiều nay ăn món gì?",
+      "actual": {
+        "decision": "filter",
+        "reasonCode": "off_topic",
+        "normalizedText": "Chiều nay ăn món gì?",
+        "signals": [
+          "question_word",
+          "off_topic"
+        ],
+        "score": 0.93,
+        "latencyMs": 0.0071000000000012164
+      }
+    },
+    {
+      "id": "OT15",
+      "group": "class_context_negative",
+      "expected": "filter",
+      "text": "Tuần tới xem phim gì?",
+      "actual": {
+        "decision": "filter",
+        "reasonCode": "off_topic",
+        "normalizedText": "Tuần tới xem phim gì?",
+        "signals": [
+          "question_word",
+          "off_topic"
+        ],
+        "score": 0.93,
+        "latencyMs": 0.0069000000000016826
+      }
+    },
+    {
+      "id": "OT16",
+      "group": "class_context_negative",
+      "expected": "filter",
+      "text": "Mai học xong chơi game gì?",
+      "actual": {
+        "decision": "filter",
+        "reasonCode": "off_topic",
+        "normalizedText": "Mai học xong chơi game gì?",
+        "signals": [
+          "question_word",
+          "off_topic"
+        ],
+        "score": 0.93,
+        "latencyMs": 0.007199999999997431
+      }
+    },
+    {
+      "id": "OT17",
+      "group": "class_context_negative",
+      "expected": "filter",
+      "text": "Buổi sau thầy mặc áo màu gì?",
+      "actual": {
+        "decision": "filter",
+        "reasonCode": "off_topic",
+        "normalizedText": "Buổi sau thầy mặc áo màu gì?",
+        "signals": [
+          "question_word",
+          "off_topic"
+        ],
+        "score": 0.93,
+        "latencyMs": 0.008900000000004127
+      }
+    },
+    {
+      "id": "OT18",
+      "group": "class_context_negative",
+      "expected": "filter",
+      "text": "Ngày mai xem tiếp phim này không?",
+      "actual": {
+        "decision": "filter",
+        "reasonCode": "off_topic",
+        "normalizedText": "Ngày mai xem tiếp phim này không?",
+        "signals": [
+          "question_word",
+          "off_topic"
+        ],
+        "score": 0.93,
+        "latencyMs": 0.01010000000000133
+      }
+    },
+    {
+      "id": "OT19",
+      "group": "class_context_negative",
+      "expected": "filter",
+      "text": "Mai chơi tiếp game này không?",
+      "actual": {
+        "decision": "filter",
+        "reasonCode": "off_topic",
+        "normalizedText": "Mai chơi tiếp game này không?",
+        "signals": [
+          "question_word",
+          "off_topic"
+        ],
+        "score": 0.93,
+        "latencyMs": 0.008899999999997021
+      }
+    },
+    {
+      "id": "RV07",
+      "group": "class_context_review",
+      "expected": "review",
+      "text": "Mai học cái đó hả?",
+      "actual": {
+        "decision": "review",
+        "reasonCode": "class_context_ambiguous",
+        "normalizedText": "Mai học cái đó hả?",
+        "signals": [
+          "question_word",
+          "class_context",
+          "missing_context"
+        ],
+        "score": 0.68,
+        "latencyMs": 0.007699999999999818
+      }
+    },
+    {
+      "id": "RV08",
+      "group": "class_context_review",
+      "expected": "review",
+      "text": "Buổi sau phần kia đúng không?",
+      "actual": {
+        "decision": "review",
+        "reasonCode": "class_context_ambiguous",
+        "normalizedText": "Buổi sau phần kia đúng không?",
+        "signals": [
+          "question_word",
+          "class_context",
+          "missing_context"
+        ],
+        "score": 0.68,
+        "latencyMs": 0.009499999999995623
       }
     },
     {
@@ -1023,7 +1723,7 @@
           "too_short"
         ],
         "score": 0.62,
-        "latencyMs": 0.006000000000000227
+        "latencyMs": 0.33509999999999707
       }
     },
     {
@@ -1040,7 +1740,7 @@
           "missing_context"
         ],
         "score": 0.62,
-        "latencyMs": 0.00590000000000046
+        "latencyMs": 0.014499999999998181
       }
     },
     {
@@ -1057,7 +1757,7 @@
           "missing_context"
         ],
         "score": 0.62,
-        "latencyMs": 0.004699999999999704
+        "latencyMs": 0.007800000000003138
       }
     },
     {
@@ -1073,7 +1773,7 @@
           "missing_context"
         ],
         "score": 0.62,
-        "latencyMs": 0.006700000000002149
+        "latencyMs": 0.01180000000000092
       }
     },
     {
@@ -1090,7 +1790,7 @@
           "missing_context"
         ],
         "score": 0.62,
-        "latencyMs": 0.005099999999998772
+        "latencyMs": 0.00829999999999842
       }
     },
     {
@@ -1108,7 +1808,7 @@
           "ambiguous_request"
         ],
         "score": 0.62,
-        "latencyMs": 0.006000000000000227
+        "latencyMs": 0.010899999999999466
       }
     },
     {
@@ -1124,7 +1824,7 @@
           "prompt_injection"
         ],
         "score": 1,
-        "latencyMs": 0.00969999999999871
+        "latencyMs": 0.006999999999997897
       }
     },
     {
@@ -1140,7 +1840,7 @@
           "prompt_injection"
         ],
         "score": 1,
-        "latencyMs": 0.004300000000000637
+        "latencyMs": 0.01020000000000465
       }
     },
     {
@@ -1156,7 +1856,7 @@
           "prompt_injection"
         ],
         "score": 1,
-        "latencyMs": 0.003800000000001802
+        "latencyMs": 0.00560000000000116
       }
     },
     {
@@ -1172,7 +1872,7 @@
           "prompt_injection"
         ],
         "score": 1,
-        "latencyMs": 0.0036999999999984823
+        "latencyMs": 0.009500000000002728
       }
     },
     {
@@ -1188,7 +1888,7 @@
           "prompt_injection"
         ],
         "score": 1,
-        "latencyMs": 0.002600000000001046
+        "latencyMs": 0.004300000000000637
       }
     },
     {
@@ -1204,7 +1904,7 @@
           "prompt_injection"
         ],
         "score": 1,
-        "latencyMs": 0.002200000000001978
+        "latencyMs": 0.004200000000004422
       }
     }
   ]
