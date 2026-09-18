@@ -1,0 +1,12 @@
+{
+  "generatedAt": "2026-09-17T16:58:57.844Z",
+  "model": "qwen3:8b",
+  "coldWarmupLatencyMs": 458,
+  "warm": {
+    "samples": 10,
+    "p50LatencyMs": 1115,
+    "p95LatencyMs": 1305,
+    "targetP95Ms": 3000,
+    "passed": true
+  }
+}

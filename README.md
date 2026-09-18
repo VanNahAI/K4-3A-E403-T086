@@ -59,6 +59,12 @@ npm run test:e2e   # Hoặc: node ai-core/eval/test_realtime_e2e.js
 
 # 4. Kiểm thử adapter Qwen3 backend (không gọi model thật)
 npm run test:ai-proxy
+
+# 5. Benchmark boundary 60 case (không gọi model)
+npm run test:boundary
+
+# 6. Benchmark Qwen3 thật: warm-up + 10 câu liên quan
+npm run benchmark:qwen
 ```
 
 ## Lịch — 6 checkpoint (ca 3A · 47,5 giờ)

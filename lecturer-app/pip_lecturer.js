@@ -26,6 +26,31 @@ let aiPipelineRestored = false;
 let aiPipelineSuspended = false;
 let aiDrainPromise = null;
 let aiHealthPromise = null;
+let aiWarmedUp = false;
+let aiReviewQuestions = [];
+let aiBoundaryHandledIds = new Set();
+let aiMetrics = createEmptyAiMetrics();
+
+function createEmptyAiMetrics() {
+  return {
+    total: 0, allow: 0, filter: 0, review: 0, block: 0,
+    manualReviewSent: 0, manualReviewSkipped: 0,
+    gateLatencies: [], qwenLatencies: [],
+    qwenRequests: 0, upstreamCalls: 0, cacheHits: 0, failures: 0, tokens: 0
+  };
+}
+
+function pushMetricSample(samples, value) {
+  if (!Number.isFinite(value)) return;
+  samples.push(value);
+  if (samples.length > 500) samples.shift();
+}
+
+function metricPercentile(samples, value) {
+  if (!samples.length) return 0;
+  const sorted = [...samples].sort((a, b) => a - b);
+  return sorted[Math.min(sorted.length - 1, Math.ceil(value / 100 * sorted.length) - 1)];
+}
 
 // Stopwords for local deflection matching
 const genericStopwords = ["lỗi", "em", "thầy", "cho", "hỏi", "bị", "là", "sao", "thế", "nào", "ạ", "với", "trong", "bài", "ở"];
@@ -147,7 +172,8 @@ async function handleServerMessage(msg) {
         if (!aiReceivedQuestionIds.has(msg.question.id)) {
           aiReceivedQuestionIds.add(msg.question.id);
           totalLecMsgs++;
-          document.getElementById('pip-lec-msgs').textContent = totalLecMsgs;
+          const messagesEl = document.getElementById('pip-lec-msgs');
+          if (messagesEl) messagesEl.textContent = totalLecMsgs;
         }
         enqueueQuestionForAi(msg.question);
       }
@@ -157,8 +183,13 @@ async function handleServerMessage(msg) {
       // Lecturer view: an echo was automatically deflected
       if (currentRole === 'lecturer') {
         totalEchoShielded++;
-        document.getElementById('pip-lec-echo').textContent = totalEchoShielded;
+        const echoEl = document.getElementById('pip-lec-echo');
+        if (echoEl) echoEl.textContent = totalEchoShielded;
       }
+      break;
+
+    case 'session_reset':
+      resetAiSessionState();
       break;
   }
 }
@@ -364,6 +395,18 @@ async function checkAiHealth() {
   return payload;
 }
 
+async function warmupAiModel() {
+  const response = await fetch('/api/ai/warmup', { method: 'POST' });
+  let payload = null;
+  try { payload = await response.json(); } catch (error) {}
+  if (!response.ok || !payload?.ok) {
+    const warmupError = new Error(payload?.error?.message || `Qwen3 warm-up failed (${response.status})`);
+    warmupError.code = payload?.error?.code || 'QWEN_WARMUP_FAILED';
+    throw warmupError;
+  }
+  return payload;
+}
+
 async function initializeAiPipeline() {
   if (currentRole !== 'lecturer' || aiPipelineSuspended) return;
   if (!window.engine) {
@@ -378,7 +421,9 @@ async function initializeAiPipeline() {
 
   setAiPipelineState('connecting');
   aiHealthPromise = checkAiHealth()
+    .then(() => aiWarmedUp ? null : warmupAiModel())
     .then(async () => {
+      aiWarmedUp = true;
       setAiPipelineState('ready');
       await drainAiQuestionQueue();
     })
@@ -397,7 +442,10 @@ function normalizeQueuedQuestion(question) {
     user: String(question.user || 'Học viên'),
     content: String(question.content || ''),
     timestamp: question.timestamp || '',
-    clientId: question.clientId || ''
+    clientId: question.clientId || '',
+    forceBoundary: question.forceBoundary === true,
+    boundaryChecked: question.boundaryChecked === true,
+    boundary: question.boundary || null
   };
 }
 
@@ -406,10 +454,31 @@ function enqueueQuestionForAi(question) {
   const normalized = normalizeQueuedQuestion(question);
   if (aiProcessedQuestionIds.has(normalized.id)) return;
   if (aiPendingQuestions.some((item) => item.id === normalized.id)) return;
+  if (aiReviewQuestions.some((item) => item.id === normalized.id)) return;
 
-  aiPendingQuestions.push(normalized);
+  const boundaryApi = window.CuratorMessageBoundary;
+  if (!boundaryApi?.evaluateMessageBoundary) {
+    setAiPipelineState('paused', 'Không tải được admission gate.');
+    return;
+  }
+  const boundary = boundaryApi.evaluateMessageBoundary(normalized.content);
+  normalized.boundary = boundary;
+  normalized.boundaryChecked = true;
+  if (!aiBoundaryHandledIds.has(normalized.id)) {
+    aiBoundaryHandledIds.add(normalized.id);
+    aiMetrics.total++;
+    aiMetrics[boundary.decision]++;
+    pushMetricSample(aiMetrics.gateLatencies, boundary.latencyMs);
+  }
+
+  if (boundary.decision === 'allow') aiPendingQuestions.push(normalized);
+  else if (boundary.decision === 'review') aiReviewQuestions.push(normalized);
+  else aiProcessedQuestionIds.add(normalized.id);
+
+  renderAiMetrics();
+  renderReviewQueue();
   updateAiPipelineUi();
-  if (aiPipelineState === 'ready') drainAiQuestionQueue();
+  if (boundary.decision === 'allow' && aiPipelineState === 'ready') drainAiQuestionQueue();
 }
 
 async function drainAiQuestionQueue() {
@@ -421,13 +490,28 @@ async function drainAiQuestionQueue() {
       setAiPipelineState('processing');
 
       try {
-        await window.engine.processMessage(question.content, question.user, { id: question.id });
+        aiMetrics.qwenRequests++;
+        const result = await window.engine.processMessage(question.content, question.user, {
+          id: question.id,
+          boundaryChecked: true,
+          forceBoundary: question.forceBoundary === true
+        });
+        if (result?.type === 'review' || result?.type === 'filtered') {
+          throw new Error('Boundary handoff không nhất quán.');
+        }
+        if (window.engine.lastCacheHit) aiMetrics.cacheHits++;
+        else aiMetrics.upstreamCalls++;
+        aiMetrics.tokens += Number(window.engine.lastTokensUsed) || 0;
+        pushMetricSample(aiMetrics.qwenLatencies, Number(window.engine.lastLatencyMs) || 0);
         lecturerClusters = window.engine.clusters;
         aiProcessedQuestionIds.add(question.id);
         aiPendingQuestions.shift();
         renderLecturerClusters();
+        renderAiMetrics();
         setAiPipelineState('ready');
       } catch (error) {
+        aiMetrics.failures++;
+        renderAiMetrics();
         setAiPipelineState('paused', error.message || 'Qwen3 không thể phân loại câu hỏi.');
         break;
       }
@@ -443,8 +527,107 @@ async function drainAiQuestionQueue() {
 async function retryAiPipeline() {
   if (aiHealthPromise || aiPipelineSuspended) return;
   aiPipelineRestored = false;
+  aiWarmedUp = false;
   setAiPipelineState('connecting');
   await initializeAiPipeline();
+}
+
+function renderAiMetrics() {
+  const values = {
+    'pip-lec-msgs': aiMetrics.total,
+    'pip-metric-allow': aiMetrics.allow,
+    'pip-metric-filter': aiMetrics.filter,
+    'pip-metric-review': aiReviewQuestions.length,
+    'pip-metric-block': aiMetrics.block,
+    'pip-metric-qwen': aiMetrics.qwenRequests
+  };
+  Object.entries(values).forEach(([id, value]) => {
+    const element = document.getElementById(id);
+    if (element) element.textContent = value;
+  });
+  const gateP95 = metricPercentile(aiMetrics.gateLatencies, 95);
+  const qwenP95 = metricPercentile(aiMetrics.qwenLatencies, 95);
+  const saved = aiMetrics.total ? Math.round(((aiMetrics.filter + aiMetrics.review + aiMetrics.block - aiMetrics.manualReviewSent) / aiMetrics.total) * 100) : 0;
+  const gateEl = document.getElementById('pip-gate-p95');
+  const qwenEl = document.getElementById('pip-qwen-p95');
+  const savedEl = document.getElementById('pip-calls-saved');
+  if (gateEl) gateEl.textContent = `${gateP95.toFixed(2)} ms`;
+  if (qwenEl) qwenEl.textContent = qwenP95 ? `${Math.round(qwenP95)} ms` : '—';
+  if (savedEl) savedEl.textContent = `${Math.max(0, saved)}%`;
+}
+
+function toggleReviewDrawer(forceOpen = null) {
+  const drawer = document.getElementById('pip-review-drawer');
+  if (!drawer) return;
+  const shouldOpen = forceOpen === null ? drawer.classList.contains('hidden') : forceOpen;
+  drawer.classList.toggle('hidden', !shouldOpen);
+}
+
+function renderReviewQueue() {
+  const list = document.getElementById('pip-review-list');
+  if (!list) return;
+  if (!aiReviewQuestions.length) {
+    list.innerHTML = '<div class="pip-review-empty">Không có tin nhắn cần duyệt.</div>';
+    return;
+  }
+  list.innerHTML = aiReviewQuestions.map((question) => {
+    const safeQuestionId = String(question.id).replace(/[^a-zA-Z0-9_.:-]/g, '');
+    return `
+    <article class="pip-review-item">
+      <strong>${escapeHTML(question.user)}</strong>
+      <p>${escapeHTML(question.content)}</p>
+      <small>${escapeHTML(question.boundary?.reasonCode || 'ambiguous')}</small>
+      <div class="pip-review-actions">
+        <button type="button" onclick="submitReviewToQwen('${safeQuestionId}')">Gửi Qwen</button>
+        <button type="button" class="secondary" onclick="skipReviewQuestion('${safeQuestionId}')">Bỏ qua</button>
+      </div>
+    </article>`;
+  }).join('');
+}
+
+function submitReviewToQwen(questionId) {
+  const index = aiReviewQuestions.findIndex((item) => item.id === questionId);
+  if (index < 0) return;
+  const [question] = aiReviewQuestions.splice(index, 1);
+  question.forceBoundary = true;
+  aiMetrics.manualReviewSent++;
+  aiPendingQuestions.unshift(question);
+  renderReviewQueue();
+  renderAiMetrics();
+  if (aiPipelineState === 'ready') drainAiQuestionQueue();
+}
+
+function skipReviewQuestion(questionId) {
+  const index = aiReviewQuestions.findIndex((item) => item.id === questionId);
+  if (index < 0) return;
+  const [question] = aiReviewQuestions.splice(index, 1);
+  aiProcessedQuestionIds.add(question.id);
+  aiMetrics.manualReviewSkipped++;
+  renderReviewQueue();
+  renderAiMetrics();
+}
+
+function resetAiSessionState() {
+  totalLecMsgs = 0;
+  totalEchoShielded = 0;
+  aiPendingQuestions = [];
+  aiReviewQuestions = [];
+  aiProcessedQuestionIds = new Set();
+  aiReceivedQuestionIds = new Set();
+  aiBoundaryHandledIds = new Set();
+  aiMetrics = createEmptyAiMetrics();
+  lecturerClusters = [];
+  if (window.engine) {
+    window.engine.clusters = [];
+    window.engine.messages = [];
+  }
+  const messages = document.getElementById('pip-lec-msgs');
+  const echo = document.getElementById('pip-lec-echo');
+  if (messages) messages.textContent = '0';
+  if (echo) echo.textContent = '0';
+  renderAiMetrics();
+  renderReviewQueue();
+  renderLecturerClusters();
 }
 
 function addQuestionToLecturerClusters(question) {
@@ -485,7 +668,8 @@ function addQuestionToLecturerClusters(question) {
 
 function renderLecturerClusters() {
   const list = document.getElementById('pip-clusters-list');
-  document.getElementById('pip-lec-clusters').textContent = lecturerClusters.length;
+  const clusterCountEl = document.getElementById('pip-lec-clusters');
+  if (clusterCountEl) clusterCountEl.textContent = lecturerClusters.length;
 
   if (lecturerClusters.length === 0) {
     list.innerHTML = `<div style="text-align: center; padding: 28px; color: #64748b; font-size: 0.8rem;">Đang lắng nghe câu hỏi từ học viên trong lớp...</div>`;
@@ -645,6 +829,10 @@ function exportCompanionState() {
     aiPipelineState,
     aiPipelineError,
     aiPendingQuestions,
+    aiReviewQuestions,
+    aiBoundaryHandledIds: Array.from(aiBoundaryHandledIds),
+    aiMetrics,
+    aiWarmedUp,
     aiProcessedQuestionIds: Array.from(aiProcessedQuestionIds),
     aiReceivedQuestionIds: Array.from(aiReceivedQuestionIds),
     draftQuestion: document.getElementById('pip-student-input')?.value || '',
@@ -665,9 +853,19 @@ function restoreCompanionState(state) {
   totalEchoShielded = Number.isFinite(state.totalEchoShielded) ? state.totalEchoShielded : totalEchoShielded;
   aiPipelineState = typeof state.aiPipelineState === 'string' ? state.aiPipelineState : aiPipelineState;
   aiPipelineError = typeof state.aiPipelineError === 'string' ? state.aiPipelineError : aiPipelineError;
+  aiWarmedUp = state.aiWarmedUp === true;
   aiPendingQuestions = Array.isArray(state.aiPendingQuestions)
     ? state.aiPendingQuestions.map(normalizeQueuedQuestion)
     : aiPendingQuestions;
+  aiReviewQuestions = Array.isArray(state.aiReviewQuestions)
+    ? state.aiReviewQuestions.map(normalizeQueuedQuestion)
+    : aiReviewQuestions;
+  aiBoundaryHandledIds = new Set(Array.isArray(state.aiBoundaryHandledIds) ? state.aiBoundaryHandledIds : []);
+  if (state.aiMetrics && typeof state.aiMetrics === 'object') {
+    aiMetrics = { ...createEmptyAiMetrics(), ...state.aiMetrics };
+    aiMetrics.gateLatencies = Array.isArray(state.aiMetrics.gateLatencies) ? state.aiMetrics.gateLatencies.slice(-500) : [];
+    aiMetrics.qwenLatencies = Array.isArray(state.aiMetrics.qwenLatencies) ? state.aiMetrics.qwenLatencies.slice(-500) : [];
+  }
   aiProcessedQuestionIds = new Set(Array.isArray(state.aiProcessedQuestionIds) ? state.aiProcessedQuestionIds : []);
   aiReceivedQuestionIds = new Set(Array.isArray(state.aiReceivedQuestionIds) ? state.aiReceivedQuestionIds : []);
   aiPipelineRestored = true;
@@ -693,6 +891,8 @@ function restoreCompanionState(state) {
     if (messagesEl) messagesEl.textContent = totalLecMsgs;
     if (echoEl) echoEl.textContent = totalEchoShielded;
     renderLecturerClusters();
+    renderAiMetrics();
+    renderReviewQueue();
     updateAiPipelineUi();
     if (aiPipelineState !== 'paused') setTimeout(initializeAiPipeline, 0);
   }

@@ -209,8 +209,10 @@ class UnifiedAIEngine {
             clusters: existingClusters.map((cluster) => ({
               id: cluster.id,
               title: cluster.title,
-              keywords: Array.isArray(cluster.keywords) ? cluster.keywords : []
-            }))
+              keywords: Array.isArray(cluster.keywords) ? cluster.keywords : [],
+              count: Number(cluster.count) || 0
+            })),
+            forceBoundary: metadata.forceBoundary === true
           })
         });
 
@@ -229,6 +231,7 @@ class UnifiedAIEngine {
         this.lastLatencyMs = Number(payload.meta?.latencyMs) || 0;
         this.lastTokensUsed = Number(payload.meta?.tokensUsed) || 0;
         this.lastModelName = payload.meta?.model || 'Qwen3';
+        this.lastCacheHit = payload.meta?.cacheHit === true;
         return payload.result;
       } catch (error) {
         console.warn('Backend Qwen3 classification failed:', error.message);
@@ -299,7 +302,7 @@ Chỉ trả về định dạng JSON thuần túy (không kèm giải thích hay
       "system:", "drop table", "reply with hacked", "bỏ qua hướng dẫn",
       "xóa tất cả", "chiếm quyền", "đóng vai hacker"
     ];
-    if (injectionPatterns.some(p => lower.includes(p))) {
+    if (!metadata.boundaryChecked && injectionPatterns.some(p => lower.includes(p))) {
       const item = {
         ...msgObj,
         reason: "Phát hiện Prompt Injection / Tấn công hệ thống (Layer ③)",
@@ -313,11 +316,11 @@ Chỉ trả về định dạng JSON thuần túy (không kèm giải thích hay
     // =========================================================================
     // LAYER ③ CHECK: Greetings, Casual Banter, Off-Topic Spam
     // =========================================================================
-    if (
+    if (!metadata.boundaryChecked && (
       lower.startsWith("chào") || lower.startsWith("hello") || lower.startsWith("hi ") ||
       lower.includes("ăn cơm chưa") || lower.includes("đi vệ sinh") || lower.includes("chúc buổi học") ||
       lower === "." || lower === "..." || lower === "alo" || lower === "test" || lower.length < 2
-    ) {
+    )) {
       const item = {
         ...msgObj,
         reason: "Tin nhắn chào hỏi / Ngoài phạm vi học thuật (Layer ③)",
@@ -348,14 +351,14 @@ Chỉ trả về định dạng JSON thuần túy (không kèm giải thích hay
     // =========================================================================
     // LAYER ② CHECK: Ambiguous / Short / Lacking Context
     // =========================================================================
-    if (
+    if (!metadata.boundaryChecked && (
       rawText.length < 12 || 
       lower === "thầy ơi em chưa hiểu" || 
       lower.includes("nói lại đi") || 
       lower === "?" || 
       lower === "hả" || 
       lower === "chưa hiểu lắm ạ"
-    ) {
+    )) {
       const item = {
         ...msgObj,
         title: `Yêu cầu làm rõ: "${rawText}"`,

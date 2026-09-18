@@ -53,7 +53,8 @@ function sendQwenError(res, error) {
   const code = knownError ? error.code : 'INTERNAL_ERROR';
   const message = knownError ? error.message : 'Backend không thể xử lý yêu cầu AI.';
   console.warn(`[Qwen Proxy] ${code}: ${message}`);
-  sendJson(res, statusCode, { ok: false, error: { code, message } });
+  const boundary = knownError && error.boundary ? error.boundary : undefined;
+  sendJson(res, statusCode, { ok: false, error: { code, message, ...(boundary ? { boundary } : {}) } });
 }
 
 async function handleQwenHealth(res) {
@@ -70,6 +71,14 @@ async function handleQwenClassification(req, res) {
     const payload = await readJsonBody(req);
     const result = await qwenProxy.classify(payload);
     sendJson(res, 200, result);
+  } catch (error) {
+    sendQwenError(res, error);
+  }
+}
+
+async function handleQwenWarmup(res) {
+  try {
+    sendJson(res, 200, await qwenProxy.warmup());
   } catch (error) {
     sendQwenError(res, error);
   }
@@ -134,6 +143,24 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (pathname === '/api/ai/warmup') {
+    if (req.method !== 'POST') {
+      sendJson(res, 405, { ok: false, error: { code: 'METHOD_NOT_ALLOWED', message: 'Chỉ hỗ trợ POST.' } });
+      return;
+    }
+    handleQwenWarmup(res);
+    return;
+  }
+
+  if (pathname === '/api/ai/metrics') {
+    if (req.method !== 'GET') {
+      sendJson(res, 405, { ok: false, error: { code: 'METHOD_NOT_ALLOWED', message: 'Chỉ hỗ trợ GET.' } });
+      return;
+    }
+    sendJson(res, 200, { ok: true, metrics: qwenProxy.getMetrics() });
+    return;
+  }
+
   if (pathname === '/api/config-zoom') {
     if (req.method === 'POST') {
       let body = '';
@@ -190,10 +217,12 @@ const server = http.createServer((req, res) => {
   if (req.method === 'POST' && pathname === '/api/reset-session') {
     activeFaqs = [];
     sessionQuestionsCount = 0;
+    qwenProxy.reset();
     broadcastToRole('all', {
       type: 'faqs_refreshed',
       faqs: []
     });
+    broadcastToRole('all', { type: 'session_reset' });
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, message: 'Session reset successfully' }));
     return;
