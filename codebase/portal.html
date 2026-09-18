@@ -338,7 +338,7 @@
       </div>
 
       <button class="btn-join-main" onclick="joinAsStudent()">
-        <span>🚀 Tham gia Zoom thật &amp; mở Hỏi đáp</span>
+        <span>🚀 Mở giao diện Hỏi đáp Học viên</span>
       </button>
     </div>
 
@@ -353,7 +353,7 @@
           </div>
         </div>
         <p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.4; margin-top: 8px;">
-          Khi bấm bắt đầu, hệ thống sẽ mở phòng họp Zoom thật ở tab riêng và mở <b>bảng điều khiển Hỏi đáp realtime</b> để Thầy theo dõi, ưu tiên và trả lời câu hỏi.
+          Khi bấm bắt đầu, hệ thống sẽ mở <b>bảng điều khiển Hỏi đáp realtime</b> giống giao diện Host trong Zoom App.
         </p>
       </div>
 
@@ -363,14 +363,14 @@
       <div style="margin: 12px 0; color: #94a3b8; font-size: 0.78rem;">Mã này chỉ dùng để xác thực quyền điều phối phiên học.</div>
 
       <button class="btn-join-main" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);" onclick="joinAsLecturer()">
-        <span>🚀 Bắt đầu Zoom thật &amp; mở Host Cockpit</span>
+        <span>🚀 Bắt đầu phiên &amp; mở Host Cockpit</span>
       </button>
     </div>
 
     <!-- Footer Switch Links -->
     <div class="portal-footer-links">
       <a href="/student">💬 Mở bảng hỏi đáp học viên</a>
-      <a href="/lecturer">Bảng điều khiển toàn màn hình →</a>
+      <a href="/host">Bảng điều khiển toàn màn hình →</a>
     </div>
 
   </div>
@@ -448,21 +448,18 @@
     }
 
     async function openRealWorkshop(role, name) {
-      // Open the real Zoom link from the user gesture before awaiting the API.
-      // This avoids popup blockers while keeping Curator Q&A in the current tab.
-      const zoomWindow = window.open('about:blank', '_blank');
-      if (zoomWindow) {
-        zoomWindow.opener = null;
-      }
-
       try {
-        const endpoint = role === 'lecturer' ? '/api/session/start' : '/api/session/join';
-        const options = { method: 'POST', headers: {} };
-        if (role === 'lecturer') {
-          Object.assign(options.headers, window.curatorAuth.getLecturerHeaders(false));
+        if (role === 'student') {
+          window.location.href = '/student';
+          return;
         }
 
-        const response = await fetch(endpoint, options);
+        const options = {
+          method: 'POST',
+          headers: window.curatorAuth.getLecturerHeaders(false)
+        };
+
+        const response = await fetch('/api/session/start', options);
         let result = {};
         try {
           result = await response.json();
@@ -474,21 +471,8 @@
           throw new Error(result.message || 'Không thể tham gia phiên workshop.');
         }
 
-        const targetUrl = String(zoomConfig.url || '').trim();
-        if (!/^https?:\/\//i.test(targetUrl)) {
-          throw new Error('Link Zoom chưa được cấu hình đúng.');
-        }
-
-        if (!zoomWindow || zoomWindow.closed) {
-          throw new Error('Trình duyệt đang chặn tab Zoom mới. Hãy cho phép popup rồi bấm lại.');
-        }
-
-        zoomWindow.location.href = targetUrl;
-        window.location.href = role === 'lecturer' ? '/lecturer' : '/student';
+        window.location.href = '/host';
       } catch (error) {
-        if (zoomWindow && !zoomWindow.closed) {
-          zoomWindow.close();
-        }
         alert(error.message || 'Không thể mở workshop.');
       }
     }

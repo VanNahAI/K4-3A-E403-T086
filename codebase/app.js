@@ -71,7 +71,13 @@ const AUTO_STREAM_POOL = [
 
 document.addEventListener('DOMContentLoaded', () => {
   initSpeechRecognition();
-  initLecturerWebSocket();
+  if (window.location.pathname === '/zoom-app/lecturer') {
+    // The Zoom webview first proves the current user is Host/Co-host using an
+    // encrypted Zoom App Context. Start the lecturer socket only afterwards.
+    window.addEventListener('curator:zoom-auth-ready', initLecturerWebSocket, { once: true });
+  } else {
+    initLecturerWebSocket();
+  }
   initSidebarQrPreview();
   setupEventListeners();
   updateModelBadgeDisplay();

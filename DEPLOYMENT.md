@@ -58,7 +58,7 @@ https://<domain-public>/api/zoom/webhook
 
 Sau đó lấy Secret Token của webhook đưa vào `ZOOM_WEBHOOK_SECRET_TOKEN`. Zoom
 sẽ gửi cả bước URL validation và chữ ký `x-zm-signature`; server kiểm tra cả hai
-trước khi đưa tin nhắn vào luồng `/lecturer`. Endpoint này cần HTTPS public,
+trước khi đưa tin nhắn vào companion Host của CP3. Endpoint này cần HTTPS public,
 không thể nhận webhook từ `localhost`.
 
 Tin nhắn native được chuẩn hóa thành `new_student_question`, có tên người gửi,
@@ -66,6 +66,45 @@ thời gian, nội dung và cờ `source: zoom_webhook`. Khi tin trùng FAQ, lec
 vẫn nhìn thấy câu hỏi ở trạng thái auto-resolved. Việc gửi câu trả lời ngược
 trở lại cửa sổ Zoom cần thêm quyền/API gửi chat của Zoom; webhook nhận tin một
 chiều không tự gửi trả lời vào meeting.
+
+## Chạy Curator AI bên trong Zoom Meeting
+
+General App trong Zoom Marketplace cần cấu hình **Surface > Meetings** như sau:
+
+```text
+Home URL:
+https://heftiness-ship-laboring.ngrok-free.dev/zoom-app
+
+Domain Allow List:
+heftiness-ship-laboring.ngrok-free.dev
+appssdk.zoom.us
+```
+
+Bật **Zoom App SDK**, sau đó trong **Add APIs** chọn bốn API:
+
+- `getRunningContext`
+- `getUserContext`
+- `getMeetingContext`
+- `getAppContext`
+
+Scope `zoomapp:inmeeting` phải được giữ lại. Khi Host hoặc Co-host mở ứng dụng
+trong một Meeting thật, SDK tự lấy Meeting ID, đồng bộ bộ lọc webhook và mở
+phiên realtime. Participant/Guest mở cùng ứng dụng sẽ thấy companion Học viên
+của CP3 để gửi câu hỏi, nhận FAQ và auto-reply. Ngoài ra, Event Subscription
+`meeting.chat_message_sent` vẫn đưa câu hỏi từ Chat gốc của Zoom vào companion
+Host; luồng webhook này chỉ nhận dữ liệu một chiều từ Zoom.
+
+Home URL `/zoom-app` là bộ định tuyến vai trò: Host/Co-host được đưa vào
+`/zoom-app/lecturer` với giao diện cockpit CP3; Participant/Guest được đưa vào
+`/zoom-app/student` với giao diện hỏi đáp học viên CP3. Không đặt Home URL trực
+tiếp thành `/lecturer`, vì như vậy mọi người tham gia đều nhìn thấy cùng một
+giao diện giảng viên.
+
+OAuth Redirect URL vẫn là `/api/zoom/oauth/callback`. Sau khi bấm **Add app
+now**, callback chuyển sang `/zoom-auth-success`; trang này chỉ xác nhận đã thêm
+app và không mở dashboard `/lecturer`.
+
+Đường dẫn `/zoom` và giao diện phòng họp giả không thuộc luồng triển khai này.
 
 ## Kiểm thử realtime
 
@@ -92,6 +131,12 @@ Các API yêu cầu quyền giảng viên gồm:
 
 Webhook Zoom được xác thực riêng bằng `ZOOM_WEBHOOK_SECRET_TOKEN`, không dùng
 `LECTURER_ACCESS_TOKEN`.
+
+Với cấu hình hiện tại chỉ cần **General app 984**. App này vừa cung cấp Zoom App
+Surface, vừa có Event Subscription trong **Features > Access**. Hãy đặt URL
+`/api/zoom/webhook`, bật event `Meeting Chat Message Sent` /
+`meeting.chat_message_sent`, rồi dùng Secret Token của chính General app 984
+trong `.env.production`. Không trộn Secret Token của một app Zoom khác.
 
 Trong môi trường Internet thật vẫn cần triển khai HTTPS/WSS, reverse proxy,
 rate limit và cơ chế đăng nhập người dùng đầy đủ; token dùng ở bước này là
@@ -130,6 +175,25 @@ container ứng dụng. Kiểm tra sau khi chạy:
 ```bash
 curl https://qa.example.com/api/health
 ```
+
+## Kiểm thử Zoom App bằng ngrok trên Windows
+
+Để tránh Caddy tự chuyển hướng HTTP sang HTTPS khi dùng domain `localhost`,
+dùng file override chỉ mở ứng dụng Node trên máy local:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\start-zoom-ngrok.ps1
+```
+
+Giữ cửa sổ ngrok luôn mở. Endpoint OAuth và webhook khi đó dùng:
+
+```text
+https://heftiness-ship-laboring.ngrok-free.dev/api/zoom/oauth/callback
+https://heftiness-ship-laboring.ngrok-free.dev/api/zoom/webhook
+```
+
+Nếu ngrok cấp domain khác, cập nhật lại các URL này trong Zoom Marketplace và
+`ZOOM_OAUTH_REDIRECT_URI` rồi recreate container.
 
 Không commit `.env.production`. Nếu dùng Render/Railway/Fly.io thay Docker
 Compose, dùng cùng các biến môi trường trong `.env.example`, start command

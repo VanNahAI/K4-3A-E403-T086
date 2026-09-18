@@ -26,9 +26,21 @@ const ZOOM_WEBHOOK_SECRET_TOKEN = String(process.env.ZOOM_WEBHOOK_SECRET_TOKEN |
 const ZOOM_OAUTH_CLIENT_ID = String(process.env.ZOOM_OAUTH_CLIENT_ID || '').trim();
 const ZOOM_OAUTH_CLIENT_SECRET = String(process.env.ZOOM_OAUTH_CLIENT_SECRET || '').trim();
 const ZOOM_OAUTH_REDIRECT_URI = String(process.env.ZOOM_OAUTH_REDIRECT_URI || '').trim();
-const ZOOM_OAUTH_SUCCESS_PATH = String(process.env.ZOOM_OAUTH_SUCCESS_PATH || '/lecturer').trim() || '/lecturer';
+const ZOOM_OAUTH_SUCCESS_PATH = String(process.env.ZOOM_OAUTH_SUCCESS_PATH || '/zoom-auth-success').trim() || '/zoom-auth-success';
 const zoomOAuthGrants = new Map();
+const zoomAppSessions = new Map();
+const ZOOM_APP_SESSION_TTL_MS = 2 * 60 * 60 * 1000;
 const ZOOM_WEBHOOK_MAX_CLOCK_SKEW_SECONDS = 5 * 60;
+const zoomWebhookDiagnostics = {
+  received: 0,
+  signatureRejected: 0,
+  validationRequests: 0,
+  acceptedMessages: 0,
+  ignoredMessages: 0,
+  lastEvent: null,
+  lastEventAt: null,
+  lastOutcome: null
+};
 const configuredBodyLimit = Number(process.env.MAX_REQUEST_BODY_BYTES);
 const MAX_REQUEST_BODY_BYTES = Number.isInteger(configuredBodyLimit) && configuredBodyLimit > 0
   ? configuredBodyLimit
@@ -73,6 +85,102 @@ function hasValidLecturerToken(providedToken) {
   return expected.length === provided.length && crypto.timingSafeEqual(expected, provided);
 }
 
+function decryptZoomAppContext(encryptedContext) {
+  if (!ZOOM_OAUTH_CLIENT_SECRET) {
+    throw new Error('ZOOM_OAUTH_CLIENT_SECRET chưa được cấu hình.');
+  }
+
+  let buffer = Buffer.from(String(encryptedContext || '').trim(), 'base64url');
+  if (buffer.length < 24) throw new Error('Zoom App Context không hợp lệ.');
+
+  const ivLength = buffer.readUInt8(0);
+  buffer = buffer.subarray(1);
+  if (!ivLength || buffer.length < ivLength + 2) throw new Error('Zoom App Context thiếu IV.');
+  const iv = buffer.subarray(0, ivLength);
+  buffer = buffer.subarray(ivLength);
+
+  const aadLength = buffer.readUInt16LE(0);
+  buffer = buffer.subarray(2);
+  if (buffer.length < aadLength + 4) throw new Error('Zoom App Context thiếu AAD.');
+  const aad = buffer.subarray(0, aadLength);
+  buffer = buffer.subarray(aadLength);
+
+  const cipherLength = buffer.readUInt32LE(0);
+  buffer = buffer.subarray(4);
+  if (!cipherLength || buffer.length !== cipherLength + 16) {
+    throw new Error('Zoom App Context có độ dài bản mã không hợp lệ.');
+  }
+  const cipherText = buffer.subarray(0, cipherLength);
+  const authTag = buffer.subarray(cipherLength);
+
+  const key = crypto.createHash('sha256').update(ZOOM_OAUTH_CLIENT_SECRET).digest();
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+  if (aad.length) decipher.setAAD(aad);
+  decipher.setAuthTag(authTag);
+  decipher.setAutoPadding(false);
+  const decrypted = Buffer.concat([decipher.update(cipherText), decipher.final()]);
+  return JSON.parse(decrypted.toString('utf8'));
+}
+
+function timestampToMilliseconds(value) {
+  const timestamp = Number(value);
+  if (!Number.isFinite(timestamp) || timestamp <= 0) return 0;
+  return timestamp > 10_000_000_000 ? timestamp : timestamp * 1000;
+}
+
+function validateZoomHostContext(encryptedContext) {
+  const context = decryptZoomAppContext(encryptedContext);
+  const now = Date.now();
+  const expiresAt = timestampToMilliseconds(context.exp);
+  const createdAt = timestampToMilliseconds(context.ts);
+
+  if (expiresAt && expiresAt <= now) throw new Error('Zoom App Context đã hết hạn.');
+  if (!expiresAt && (!createdAt || Math.abs(now - createdAt) > 10 * 60 * 1000)) {
+    throw new Error('Zoom App Context đã quá cũ.');
+  }
+  if (context.iss && context.iss !== 'marketplace.zoom.us') {
+    throw new Error('Zoom App Context có issuer không hợp lệ.');
+  }
+  if (context.aud && ZOOM_OAUTH_CLIENT_ID && context.aud !== ZOOM_OAUTH_CLIENT_ID) {
+    throw new Error('Zoom App Context không thuộc ứng dụng này.');
+  }
+
+  const role = String(context.attendrole || '').toLowerCase().replace(/[\s_-]/g, '');
+  if (role !== 'host' && role !== 'cohost') {
+    const error = new Error('Chỉ Host hoặc Co-host mới được mở bảng giảng viên.');
+    error.statusCode = 403;
+    throw error;
+  }
+  return { ...context, normalizedRole: role };
+}
+
+function issueZoomAppSession(context) {
+  const token = crypto.randomBytes(32).toString('base64url');
+  const contextExpiry = timestampToMilliseconds(context.exp);
+  const expiresAt = Math.min(contextExpiry || Number.MAX_SAFE_INTEGER, Date.now() + ZOOM_APP_SESSION_TTL_MS);
+  zoomAppSessions.set(token, {
+    userId: String(context.uid || ''),
+    meetingUuid: String(context.mid || ''),
+    expiresAt
+  });
+  return { token, expiresAt };
+}
+
+function hasValidZoomAppSessionToken(providedToken) {
+  const token = String(providedToken || '').trim();
+  const session = zoomAppSessions.get(token);
+  if (!session) return false;
+  if (session.expiresAt <= Date.now()) {
+    zoomAppSessions.delete(token);
+    return false;
+  }
+  return true;
+}
+
+function hasValidLecturerCredential(providedToken) {
+  return hasValidLecturerToken(providedToken) || hasValidZoomAppSessionToken(providedToken);
+}
+
 function sendJson(res, statusCode, payload) {
   applySecurityHeaders(res);
   res.writeHead(statusCode, {
@@ -87,6 +195,16 @@ function applySecurityHeaders(res) {
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('Referrer-Policy', 'no-referrer');
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self'; base-uri 'self'; object-src 'none'; " +
+    "script-src 'self' 'unsafe-inline' https://appssdk.zoom.us; " +
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+    "font-src 'self' https://fonts.gstatic.com data:; " +
+    "img-src 'self' data: https://api.qrserver.com; " +
+    "connect-src 'self' ws: wss: https://openrouter.ai; frame-src 'self'"
+  );
 }
 
 function readJsonBody(req, res, onJson) {
@@ -147,7 +265,7 @@ function readJsonBody(req, res, onJson) {
 }
 
 function requireLecturerHttp(req, res) {
-  if (!LECTURER_ACCESS_TOKEN) {
+  if (!LECTURER_ACCESS_TOKEN && zoomAppSessions.size === 0) {
     sendJson(res, 503, {
       success: false,
       code: 'LECTURER_AUTH_NOT_CONFIGURED',
@@ -156,7 +274,7 @@ function requireLecturerHttp(req, res) {
     return false;
   }
 
-  if (!hasValidLecturerToken(getBearerToken(req))) {
+  if (!hasValidLecturerCredential(getBearerToken(req))) {
     sendJson(res, 401, {
       success: false,
       code: 'LECTURER_AUTH_REQUIRED',
@@ -322,7 +440,17 @@ const server = http.createServer(async (req, res) => {
   // Route aliases
   if (pathname === '/' || pathname === '/portal') {
     pathname = '/portal.html';
+  } else if (pathname === '/zoom-app') {
+    pathname = '/zoom_entry.html';
+  } else if (pathname === '/zoom-app/lecturer' || pathname === '/zoom-app/student') {
+    pathname = '/pip_companion.html';
+  } else if (pathname === '/zoom-auth-success') {
+    pathname = '/zoom_auth_success.html';
   } else if (pathname === '/lecturer') {
+    res.writeHead(302, { Location: '/zoom-app' });
+    res.end();
+    return;
+  } else if (pathname === '/host') {
     pathname = '/index.html';
   } else if (pathname === '/student') {
     pathname = '/student.html';
@@ -340,7 +468,8 @@ const server = http.createServer(async (req, res) => {
       zoomConfigured: isValidZoomUrl(zoomMeetingConfig.url),
       zoomWebhookConfigured: Boolean(ZOOM_WEBHOOK_SECRET_TOKEN),
       simulationEnabled: ENABLE_SIMULATION,
-      sessionOpen: sessionState.isOpen
+      sessionOpen: sessionState.isOpen,
+      zoomWebhook: { ...zoomWebhookDiagnostics }
     });
     return;
   }
@@ -394,12 +523,43 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Exchange Zoom's encrypted, short-lived app context for an equally
+  // short-lived local lecturer session. This avoids a browser prompt inside
+  // the Zoom webview while verifying the caller is the live Host or Co-host.
+  if (req.method === 'POST' && pathname === '/api/zoom/bootstrap') {
+    readJsonBody(req, res, json => {
+      try {
+        const context = validateZoomHostContext(json.context);
+        const session = issueZoomAppSession(context);
+        sendJson(res, 200, {
+          success: true,
+          token: session.token,
+          expiresAt: new Date(session.expiresAt).toISOString(),
+          meetingUuid: context.mid || null
+        });
+      } catch (error) {
+        sendJson(res, error.statusCode || 401, {
+          success: false,
+          code: 'ZOOM_APP_CONTEXT_INVALID',
+          message: error.message || 'Không xác thực được Zoom App Context.'
+        });
+      }
+    });
+    return;
+  }
+
   // Zoom sends native meeting chat events here. This endpoint is intentionally
   // separate from lecturer auth: Zoom authenticates the request with its
   // x-zm-signature header and webhook secret token.
   if (req.method === 'POST' && pathname === '/api/zoom/webhook') {
     readJsonBody(req, res, (json, rawBody) => {
+      zoomWebhookDiagnostics.received += 1;
+      zoomWebhookDiagnostics.lastEvent = String(json.event || 'unknown_event');
+      zoomWebhookDiagnostics.lastEventAt = new Date().toISOString();
+
       if (!ZOOM_WEBHOOK_SECRET_TOKEN) {
+        zoomWebhookDiagnostics.ignoredMessages += 1;
+        zoomWebhookDiagnostics.lastOutcome = 'ZOOM_WEBHOOK_NOT_CONFIGURED';
         sendJson(res, 503, {
           success: false,
           code: 'ZOOM_WEBHOOK_NOT_CONFIGURED',
@@ -409,6 +569,8 @@ const server = http.createServer(async (req, res) => {
       }
 
       if (!hasValidZoomWebhookSignature(req, rawBody)) {
+        zoomWebhookDiagnostics.signatureRejected += 1;
+        zoomWebhookDiagnostics.lastOutcome = 'SIGNATURE_INVALID';
         sendJson(res, 401, {
           success: false,
           code: 'ZOOM_WEBHOOK_SIGNATURE_INVALID',
@@ -418,6 +580,8 @@ const server = http.createServer(async (req, res) => {
       }
 
       if (json.event === 'endpoint.url_validation') {
+        zoomWebhookDiagnostics.validationRequests += 1;
+        zoomWebhookDiagnostics.lastOutcome = 'ENDPOINT_VALIDATED';
         const plainToken = String(json.payload?.plainToken || '').trim();
         if (!plainToken) {
           sendJson(res, 400, {
@@ -432,6 +596,8 @@ const server = http.createServer(async (req, res) => {
       }
 
       if (json.event !== 'meeting.chat_message_sent') {
+        zoomWebhookDiagnostics.ignoredMessages += 1;
+        zoomWebhookDiagnostics.lastOutcome = `IGNORED_EVENT:${json.event || 'unknown_event'}`;
         sendJson(res, 200, {
           success: true,
           received: true,
@@ -445,6 +611,8 @@ const server = http.createServer(async (req, res) => {
       const configuredMeetingId = normalizeMeetingId(zoomMeetingConfig.meetingId);
       const incomingMeetingId = normalizeMeetingId(meetingObject.id);
       if (configuredMeetingId && incomingMeetingId && configuredMeetingId !== incomingMeetingId) {
+        zoomWebhookDiagnostics.ignoredMessages += 1;
+        zoomWebhookDiagnostics.lastOutcome = 'MEETING_ID_MISMATCH';
         sendJson(res, 200, {
           success: true,
           received: true,
@@ -454,6 +622,13 @@ const server = http.createServer(async (req, res) => {
       }
 
       const result = ingestZoomChatMessage(chatMessage, meetingObject, json.event_ts);
+      if (result.accepted) {
+        zoomWebhookDiagnostics.acceptedMessages += 1;
+        zoomWebhookDiagnostics.lastOutcome = result.isEcho ? 'ACCEPTED_ECHO' : 'ACCEPTED_NEW_QUESTION';
+      } else {
+        zoomWebhookDiagnostics.ignoredMessages += 1;
+        zoomWebhookDiagnostics.lastOutcome = result.ignored || (result.duplicate ? 'DUPLICATE' : 'IGNORED');
+      }
       sendJson(res, 200, {
         success: true,
         received: true,
@@ -907,7 +1082,7 @@ function handleWebSocketMessage(ws, msg) {
   switch (msg.type) {
     case 'register_role':
       if (msg.role === 'lecturer') {
-        if (!hasValidLecturerToken(msg.token)) {
+        if (!hasValidLecturerCredential(msg.token)) {
           client.role = 'unknown';
           client.authenticated = false;
           sendWsAuthError(ws, 'Không thể đăng ký quyền giảng viên nếu thiếu mã truy cập hợp lệ.');
@@ -1147,7 +1322,7 @@ function parseZoomChatLog(rawText) {
 server.listen(PORT, () => {
   console.log(`=======================================================`);
   console.log(`🚀 Workshop Question Curator Server running!`);
-  console.log(`👉 Giảng viên Dashboard: http://localhost:${PORT}/lecturer`);
+  console.log(`👉 Giảng viên Dashboard: http://localhost:${PORT}/host`);
   console.log(`👉 Học viên Mobile Portal: http://localhost:${PORT}/student`);
   console.log(`👉 WebSocket Endpoint: ws://localhost:${PORT}/ws`);
   console.log(`=======================================================`);

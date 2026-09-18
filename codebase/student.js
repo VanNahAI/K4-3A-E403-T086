@@ -17,7 +17,18 @@ let activeSessionId = null;
 let isSessionOpen = false;
 let isWebSocketConnected = false;
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  if (window.curatorZoomStudentReady) {
+    try {
+      const zoomIdentity = await window.curatorZoomStudentReady;
+      if (zoomIdentity?.screenName) {
+        studentId = zoomIdentity.screenName;
+        localStorage.setItem('curator_student_id', studentId);
+      }
+    } catch (error) {
+      console.warn('Không lấy được danh tính học viên từ Zoom:', error);
+    }
+  }
   document.getElementById('tag-student-id').textContent = `${studentId} ▾`;
   initWebSocket();
   setupStudentEvents();

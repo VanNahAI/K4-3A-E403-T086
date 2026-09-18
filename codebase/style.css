@@ -1805,6 +1805,143 @@ body {
   }
 }
 
+/* Zoom Apps runs in a narrow side panel inside the native Zoom client. */
+.zoom-app-runtime {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  padding: 5px 9px;
+  margin-bottom: 8px;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 999px;
+  color: #bae6fd;
+  background: rgba(14, 165, 233, 0.12);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.zoom-app-runtime.error {
+  border-color: rgba(245, 158, 11, 0.4);
+  color: #fde68a;
+  background: rgba(245, 158, 11, 0.12);
+}
+
+.zoom-app-runtime-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #38bdf8;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.8);
+}
+
+@media (max-width: 700px) {
+  .app-sidebar {
+    display: none;
+  }
+
+  .app-main-viewport,
+  .app-layout {
+    width: 100%;
+    height: 100vh;
+  }
+
+  .top-nav {
+    padding: 12px;
+    align-items: stretch;
+  }
+
+  .brand-title-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  .brand-context h1 {
+    font-size: 1.15rem;
+    line-height: 1.2;
+  }
+
+  .subtitle {
+    display: none;
+  }
+
+  .header-action-group {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-top: 10px;
+  }
+
+  .header-action-group .btn {
+    width: 100%;
+    min-width: 0;
+    padding: 8px 6px;
+    font-size: 0.68rem;
+  }
+
+  .header-metrics {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin-top: 10px;
+  }
+
+  .metric-card {
+    min-width: 0;
+    padding: 7px 5px;
+  }
+
+  .metric-label {
+    font-size: 0.55rem;
+  }
+
+  .metric-val {
+    font-size: 0.95rem;
+  }
+
+  #screen-1,
+  #screen-1 .workspace-container {
+    height: auto;
+    overflow: visible;
+  }
+
+  #screen-1 .workspace-container {
+    grid-template-columns: 1fr;
+    padding: 10px;
+  }
+
+  .session-control-bar {
+    padding: 9px 12px;
+  }
+
+  .session-actions-group {
+    width: 100%;
+  }
+
+  .session-actions-group .btn {
+    flex: 1;
+    font-size: 0.66rem;
+    padding: 7px 6px;
+  }
+
+  .screen-container {
+    padding: 18px 12px 40px;
+  }
+
+  .setup-card,
+  .flow-journey-card,
+  .summary-section-card {
+    padding: 16px;
+  }
+
+  .summary-kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 /* Sleek Scrollbars */
 ::-webkit-scrollbar {
   width: 6px;

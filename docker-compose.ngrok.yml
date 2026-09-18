@@ -1,0 +1,7 @@
+services:
+  workshop-curator:
+    # Expose the application only on this computer for the ngrok dev tunnel.
+    # The production compose file remains unchanged and the port is not
+    # reachable directly from other machines on the LAN.
+    ports:
+      - "127.0.0.1:3000:3000"

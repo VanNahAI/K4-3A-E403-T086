@@ -23,12 +23,36 @@ const expandedClusterIds = new Set();
 // Stopwords for local deflection matching
 const genericStopwords = ["lỗi", "em", "thầy", "cho", "hỏi", "bị", "là", "sao", "thế", "nào", "ạ", "với", "trong", "bài", "ở"];
 
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
   // 1. Read URL parameters
   const params = new URLSearchParams(window.location.search);
-  currentRole = params.get('role') || 'student';
+  const isZoomLecturer = window.location.pathname === '/zoom-app/lecturer';
+  const isZoomStudent = window.location.pathname === '/zoom-app/student';
+
+  currentRole = isZoomLecturer ? 'lecturer' : (isZoomStudent ? 'student' : (params.get('role') || 'student'));
   currentName = params.get('name') || (currentRole === 'lecturer' ? 'TS. Nguyễn Thành Nhân (Host)' : 'Minh Quân (S0129)');
   currentId = params.get('id') || (currentRole === 'lecturer' ? 'HOST' : 'S0129');
+
+  try {
+    if (isZoomLecturer) {
+      const identity = await window.curatorZoomLecturerReady;
+      currentName = identity?.screenName || currentName;
+      currentId = identity?.meetingID ? `HOST-${identity.meetingID}` : 'HOST';
+    } else if (isZoomStudent) {
+      const identity = await window.curatorZoomStudentReady;
+      currentName = identity?.screenName || currentName;
+      currentId = identity?.screenName || currentId;
+    }
+  } catch (error) {
+    showCompanionStartupError(error.message || 'Không thể kết nối với Zoom Meeting.');
+    return;
+  }
+
+  if (isZoomLecturer || isZoomStudent) {
+    document.body.classList.add('zoom-companion-context');
+    const controls = document.querySelector('.pip-controls');
+    if (controls) controls.classList.add('hidden');
+  }
 
   // 2. Setup header identity
   document.getElementById('pip-user-name').textContent = currentName;
@@ -50,6 +74,20 @@ window.addEventListener('DOMContentLoaded', () => {
   }
   connectWebSocket();
 });
+
+function showCompanionStartupError(message) {
+  const dot = document.getElementById('pip-ws-dot');
+  const status = document.getElementById('pip-ws-text');
+  if (dot) dot.className = 'status-dot';
+  if (status) {
+    status.textContent = message;
+    status.style.color = '#f87171';
+  }
+  const student = document.getElementById('pip-student-container');
+  const lecturer = document.getElementById('pip-lecturer-container');
+  if (student) student.classList.add('hidden');
+  if (lecturer) lecturer.classList.add('hidden');
+}
 
 function connectWebSocket() {
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';

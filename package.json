@@ -7,6 +7,9 @@
     "start": "node server.js",
     "test:realtime": "node eval/test_realtime_e2e.js",
     "test:zoom-webhook": "node eval/test_zoom_webhook.js",
+    "test:zoom-app": "node eval/test_zoom_app_bootstrap.js",
+    "test:zoom-role": "node eval/test_zoom_role_routing.js",
+    "test:zoom-panel": "node eval/test_zoom_panel_routes.js",
     "test:clustering": "node eval/test_clustering_regressions.js",
     "test": "npm run test:clustering"
   },

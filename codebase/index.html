@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="/style.css">
 </head>
 <body>
   <div class="app-layout">
@@ -76,6 +76,10 @@
       
       <!-- Top Navigation Bar -->
       <header class="top-nav">
+        <div id="zoom-app-runtime" class="zoom-app-runtime hidden" role="status" aria-live="polite">
+          <span class="zoom-app-runtime-dot"></span>
+          <span id="zoom-app-runtime-text">Đang kết nối Zoom Apps SDK…</span>
+        </div>
         <div class="brand-context">
           <div class="brand-title-row">
             <h1>Workshop Question Curator</h1>
@@ -689,9 +693,11 @@ Hạn nộp lab 2 có bị trừ điểm không ạ?"></textarea>
   </div>
 
   <!-- Scripts -->
-  <script src="ai_engine.js"></script>
-  <script src="auth_client.js"></script>
-  <script src="zoom_bridge.js"></script>
-  <script src="app.js"></script>
+  <script src="/ai_engine.js"></script>
+  <script src="/auth_client.js"></script>
+  <script src="/zoom_bridge.js"></script>
+  <script src="https://appssdk.zoom.us/sdk.js"></script>
+  <script src="/zoom_app.js"></script>
+  <script src="/app.js"></script>
 </body>
 </html>
